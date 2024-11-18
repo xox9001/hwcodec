@@ -81,7 +81,6 @@ public:
   const int align_ = 0;
   const bool full_range_ = false;
   const bool bt709_ = false;
-
   FFmpegVRamEncoder(void *handle, int64_t luid, API api, DataFormat dataFormat,
                     int32_t width, int32_t height, int32_t kbs,
                     int32_t framerate, int32_t gop) {
@@ -132,12 +131,13 @@ public:
     c_->height = height_;
     c_->pix_fmt = encoder_->hw_pixfmt_;
     c_->sw_pix_fmt = encoder_->sw_pixfmt_;
-    util::set_av_codec_ctx(c_, encoder_->name_, kbs_, gop_, framerate_);
-    if (!util::set_lantency_free(c_->priv_data, encoder_->name_)) {
+    util_encode::set_av_codec_ctx(c_, encoder_->name_, kbs_, gop_, framerate_);
+    if (!util_encode::set_lantency_free(c_->priv_data, encoder_->name_)) {
       return false;
     }
-    // util::set_quality(c_->priv_data, encoder_->name_, Quality_Default);
-    util::set_rate_control(c_, encoder_->name_, RC_CBR, -1);
+    // util_encode::set_quality(c_->priv_data, encoder_->name_, Quality_Default);
+    util_encode::set_rate_control(c_, encoder_->name_, RC_CBR, -1);
+    util_encode::set_others(c_->priv_data, encoder_->name_);
 
     hw_device_ctx_ = av_hwdevice_ctx_alloc(encoder_->device_type_);
     if (!hw_device_ctx_) {
@@ -254,7 +254,7 @@ public:
   }
 
   int set_bitrate(int kbs) {
-    return util::change_bit_rate(c_, encoder_->name_, kbs) ? 0 : -1;
+    return util_encode::change_bit_rate(c_, encoder_->name_, kbs) ? 0 : -1;
   }
 
   int set_framerate(int framerate) {
