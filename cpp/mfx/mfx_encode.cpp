@@ -8,6 +8,7 @@
 #include "callback.h"
 #include "common.h"
 #include "system.h"
+#include "uitl.h"
 
 #define LOG_MODULE "MFXENC"
 #include "log.h"
@@ -625,8 +626,9 @@ int mfx_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
         continue;
       if (e->native_->EnsureTexture(e->width_, e->height_)) {
         e->native_->next();
-        if (mfx_encode(e, e->native_->GetCurrentTexture(), nullptr, nullptr,
-                       0) == 0) {
+        int32_t key_obj = 0;
+        if (mfx_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback, &key_obj,
+                       0) == 0 && key_obj == 1) {
           AdapterDesc *desc = descs + count;
           desc->luid = LUID(adapter.get()->desc1_);
           count += 1;

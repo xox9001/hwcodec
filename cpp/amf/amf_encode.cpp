@@ -15,6 +15,7 @@
 #include "callback.h"
 #include "common.h"
 #include "system.h"
+#include "uitl.h"
 
 #define LOG_MODULE "AMFENC"
 #include "log.h"
@@ -184,7 +185,12 @@ public:
     void *native = surface->GetPlaneAt(0)->GetNative();
     if (!native)
       return AMF_FAIL;
-    return encode(native, nullptr, nullptr, 0);
+    int32_t key_obj = 0;
+    res = encode(native, util_encode::vram_encode_test_callback, &key_obj, 0);
+    if (res == AMF_OK && key_obj == 1) {
+      return AMF_OK;
+    }
+    return AMF_FAIL;
   }
 
   AMF_RESULT initialize() {
@@ -396,8 +402,7 @@ private:
       res = AMFEncoder_->SetProperty(AMF_VIDEO_ENCODER_HEVC_QUERY_TIMEOUT,
                                      query_timeout_); // ms
       AMF_CHECK_RETURN(
-          res, "SetProperty(AMF_VIDEO_ENCODER_HEVC_QUERY_TIMEOUT failed",
-          query_timeout_);
+          res, "SetProperty(AMF_VIDEO_ENCODER_HEVC_QUERY_TIMEOUT failed");
 
       res = AMFEncoder_->SetProperty(AMF_VIDEO_ENCODER_HEVC_TARGET_BITRATE,
                                      bitRateIn_);
