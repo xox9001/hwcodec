@@ -184,7 +184,9 @@ mod ffmpeg {
         } else if target_os == "macos" || target_os == "ios" {
             ["c++", "m"].to_vec()
         } else if target_os == "android" {
-            ["z", "m", "android", "atomic"].to_vec()
+            // https://github.com/FFmpeg/FFmpeg/commit/98b5e80fd6980e641199e9ce3bc27100e2df17a4
+            // link to mediandk directly since n7.1
+            ["z", "m", "android", "atomic", "mediandk"].to_vec()
         } else {
             panic!("unsupported os");
         };
