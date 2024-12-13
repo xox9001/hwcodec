@@ -1,8 +1,13 @@
 use crate::{
-    common::{AdapterDesc, Driver::*},
+    common::{
+        AdapterDesc,
+        DataFormat::*,
+        Driver::{self, *},
+    },
     ffmpeg::init_av_log,
     vram::{
-        amf, ffmpeg, inner::EncodeCalls, mfx, nv, DynamicContext, EncodeContext, FeatureContext,
+        amf, ffmpeg, inner::EncodeCalls, inner::InnerEncodeContext, mfx, nv, DynamicContext,
+        EncodeContext, FeatureContext,
     },
 };
 use log::trace;
@@ -134,12 +139,6 @@ impl Display for EncodeFrame {
 pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
     let mut natives: Vec<_> = vec![];
     natives.append(
-        &mut ffmpeg::possible_support_encoders()
-            .drain(..)
-            .map(|n| (FFMPEG, n))
-            .collect(),
-    );
-    natives.append(
         &mut nv::possible_support_encoders()
             .drain(..)
             .map(|n| (NV, n))
@@ -157,7 +156,34 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
             .map(|n| (MFX, n))
             .collect(),
     );
-    let inputs = natives.drain(..).map(|(driver, n)| EncodeContext {
+    let mut result: Vec<_> = do_test(natives, d.clone(), vec![]);
+    let ffmpeg_possible_support_encoders = ffmpeg::possible_support_encoders();
+    for format in [H264, H265] {
+        let luids: Vec<_> = result
+            .iter()
+            .filter(|e| e.data_format == format)
+            .map(|e| e.luid)
+            .collect();
+        let v: Vec<_> = ffmpeg_possible_support_encoders
+            .clone()
+            .drain(..)
+            .filter(|e| e.format == format)
+            .map(|n| (FFMPEG, n))
+            .collect();
+        let mut v = do_test(v, d.clone(), luids);
+        result.append(&mut v);
+    }
+
+    result
+}
+
+fn do_test(
+    inners: Vec<(Driver, InnerEncodeContext)>,
+    d: DynamicContext,
+    luid_range: Vec<i64>,
+) -> Vec<FeatureContext> {
+    let mut inners = inners;
+    let inputs = inners.drain(..).map(|(driver, n)| EncodeContext {
         f: FeatureContext {
             driver,
             api: n.api,
@@ -172,6 +198,7 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
     for input in inputs {
         let outputs = outputs.clone();
         let mutex = mutex.clone();
+        let luid_range = luid_range.clone();
         let handle = thread::spawn(move || {
             let _lock;
             if input.f.driver == NV || input.f.driver == FFMPEG {
@@ -191,6 +218,8 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
                     descs.as_mut_ptr() as _,
                     descs.len() as _,
                     &mut desc_count,
+                    luid_range.as_ptr() as _,
+                    luid_range.len() as _,
                     input.f.api as _,
                     input.f.data_format as i32,
                     input.d.width,

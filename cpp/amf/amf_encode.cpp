@@ -15,7 +15,7 @@
 #include "callback.h"
 #include "common.h"
 #include "system.h"
-#include "uitl.h"
+#include "util.h"
 
 #define LOG_MODULE "AMFENC"
 #include "log.h"
@@ -186,8 +186,10 @@ public:
     if (!native)
       return AMF_FAIL;
     int32_t key_obj = 0;
+    auto start = util::now();
     res = encode(native, util_encode::vram_encode_test_callback, &key_obj, 0);
-    if (res == AMF_OK && key_obj == 1) {
+    int64_t elapsed = util::elapsed_ms(start);
+    if (res == AMF_OK && key_obj == 1 && elapsed < TEST_TIMEOUT_MS) {
       return AMF_OK;
     }
     return AMF_FAIL;
@@ -529,6 +531,7 @@ int amf_driver_support() {
 }
 
 int amf_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
+                    const int64_t *luid_range, int32_t luid_range_count,
                     API api, DataFormat dataFormat, int32_t width,
                     int32_t height, int32_t kbs, int32_t framerate,
                     int32_t gop) {

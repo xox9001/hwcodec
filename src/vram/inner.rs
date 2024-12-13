@@ -36,6 +36,8 @@ pub type TestEncodeCall = unsafe extern "C" fn(
     outDescs: *mut c_void,
     maxDescNum: i32,
     outDescNum: *mut i32,
+    luid_range: *const i64,
+    luid_range_count: i32,
     api: i32,
     dataFormat: i32,
     width: i32,
@@ -49,6 +51,8 @@ pub type TestDecodeCall = unsafe extern "C" fn(
     outDescs: *mut c_void,
     maxDescNum: i32,
     outDescNum: *mut i32,
+    luid_range: *const i64,
+    luid_range_count: i32,
     api: i32,
     dataFormat: i32,
     data: *mut u8,
@@ -74,11 +78,13 @@ pub struct DecodeCalls {
     pub test: TestDecodeCall,
 }
 
+#[derive(Clone)]
 pub struct InnerEncodeContext {
     pub api: API,
     pub format: DataFormat,
 }
 
+#[derive(Clone)]
 pub struct InnerDecodeContext {
     pub api: API,
     pub data_format: DataFormat,

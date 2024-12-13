@@ -8,7 +8,7 @@
 #include "callback.h"
 #include "common.h"
 #include "system.h"
-#include "uitl.h"
+#include "util.h"
 
 #define LOG_MODULE "MFXENC"
 #include "log.h"
@@ -609,6 +609,7 @@ int mfx_encode(void *encoder, ID3D11Texture2D *tex, EncodeCallback callback,
 }
 
 int mfx_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
+                    const int64_t *luid_range, int32_t luid_range_count,
                     API api, DataFormat dataFormat, int32_t width,
                     int32_t height, int32_t kbs, int32_t framerate,
                     int32_t gop) {
@@ -627,8 +628,11 @@ int mfx_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
       if (e->native_->EnsureTexture(e->width_, e->height_)) {
         e->native_->next();
         int32_t key_obj = 0;
-        if (mfx_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback, &key_obj,
-                       0) == 0 && key_obj == 1) {
+        auto start = util::now();
+        bool succ = mfx_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback, &key_obj,
+                       0) == 0 && key_obj == 1;
+        int64_t elapsed = util::elapsed_ms(start);
+        if (succ && elapsed < TEST_TIMEOUT_MS) {
           AdapterDesc *desc = descs + count;
           desc->luid = LUID(adapter.get()->desc1_);
           count += 1;
