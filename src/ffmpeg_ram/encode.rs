@@ -17,7 +17,6 @@ use std::{
     slice,
     sync::{Arc, Mutex},
     thread,
-    time::Instant,
 };
 
 use super::Priority;
@@ -327,8 +326,12 @@ impl Encoder {
                         ..ctx
                     };
                     if let Ok(mut encoder) = Encoder::new(c) {
-                        if let Ok(_) = encoder.encode(&yuv, 0) {
-                            infos.lock().unwrap().push(codec);
+                        if let Ok(frames) = encoder.encode(&yuv, 0) {
+                            if frames.len() == 1 {
+                                if frames[0].key == 1 {
+                                    infos.lock().unwrap().push(codec);
+                                }
+                            }
                         }
                     }
                 });

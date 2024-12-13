@@ -300,6 +300,16 @@ bool change_bit_rate(AVCodecContext *c, const std::string &name, int kbs) {
   return true;
 }
 
+void vram_encode_test_callback(const uint8_t *data, int32_t len, int32_t key, const void *obj, int64_t pts) {
+  (void)data;
+  (void)len;
+  (void)pts;
+  if (obj) {
+    int32_t *pkey = (int32_t *)obj;
+    *pkey = key;
+  }
+}
+
 } // namespace util_encode
 
 namespace util_decode {

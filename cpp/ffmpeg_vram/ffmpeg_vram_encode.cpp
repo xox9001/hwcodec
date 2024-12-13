@@ -515,8 +515,9 @@ int ffmpeg_vram_test_encode(void *outDescs, int32_t maxDescNum,
           continue;
         if (e->native_->EnsureTexture(e->width_, e->height_)) {
           e->native_->next();
-          if (ffmpeg_vram_encode(e, e->native_->GetCurrentTexture(), nullptr,
-                                 nullptr, 0) == 0) {
+          int32_t key_obj = 0;
+          if (ffmpeg_vram_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback,
+                                 &key_obj, 0) == 0 && key_obj == 1) {
             AdapterDesc *desc = descs + count;
             desc->luid = LUID(adapter.get()->desc1_);
             count += 1;
