@@ -1,5 +1,6 @@
 #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
 use super::Priority;
+use crate::common::TEST_TIMEOUT_MS;
 #[cfg(target_os = "linux")]
 use crate::common::{DataFormat, Driver};
 use crate::ffmpeg::{init_av_log, AVHWDeviceType::*};
@@ -301,7 +302,6 @@ impl Decoder {
                     device_type: codec.hwdevice,
                     thread_count: 4,
                 };
-                let start = Instant::now();
                 if let Ok(mut decoder) = Decoder::new(c) {
                     let data = match codec.format {
                         H264 => &buf264[..],
@@ -313,22 +313,10 @@ impl Decoder {
                     };
                     let start = Instant::now();
                     if let Ok(_) = decoder.decode(data) {
-                        infos.lock().unwrap().push(codec);
-                    } else {
-                        log::debug!(
-                            "name:{} device:{:?} decode failed:{:?}",
-                            codec.name,
-                            codec.hwdevice,
-                            start.elapsed()
-                        );
+                        if start.elapsed().as_millis() < TEST_TIMEOUT_MS as _ {
+                            infos.lock().unwrap().push(codec);
+                        }
                     }
-                } else {
-                    log::debug!(
-                        "name:{} device:{:?} new failed:{:?}",
-                        codec.name.clone(),
-                        codec.hwdevice,
-                        start.elapsed()
-                    );
                 }
             });
 

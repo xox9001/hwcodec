@@ -13,7 +13,7 @@ extern "C" {
 
 #define LOG_MODULE "FFMPEG_RAM_DEC"
 #include <log.h>
-#include <uitl.h>
+#include <util.h>
 
 #ifdef _WIN32
 #include <libavutil/hwcontext_d3d11va.h>

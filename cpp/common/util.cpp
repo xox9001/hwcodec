@@ -2,7 +2,7 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
-#include "uitl.h"
+#include "util.h"
 #include <limits>
 #include <map>
 #include <string.h>
@@ -326,4 +326,17 @@ bool has_flag_could_not_find_ref_with_poc() {
 
 extern "C" void hwcodec_set_flag_could_not_find_ref_with_poc() {
   util_decode::g_flag_could_not_find_ref_with_poc = true;
+}
+
+namespace util {
+bool luid_in_range(int64_t luid, const int64_t *luid_range, int32_t luid_range_count) {
+  if (!luid_range || luid_range_count == 0)
+    return false;
+  for (int i = 0; i < luid_range_count; i++) {
+    if (luid == luid_range[i]) {
+      return true;
+    }
+  }
+  return false;
+}
 }

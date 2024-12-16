@@ -14,7 +14,7 @@ extern "C" {
 
 #define LOG_MODULE "FFMPEG_RAM_ENC"
 #include <log.h>
-#include <uitl.h>
+#include <util.h>
 #ifdef _WIN32
 #include "win.h"
 #endif

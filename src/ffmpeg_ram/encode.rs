@@ -1,7 +1,7 @@
 use crate::{
     common::{
         DataFormat::{self, *},
-        Quality, RateControl,
+        Quality, RateControl, TEST_TIMEOUT_MS,
     },
     ffmpeg::{init_av_log, AVPixelFormat},
     ffmpeg_ram::{
@@ -326,9 +326,12 @@ impl Encoder {
                         ..ctx
                     };
                     if let Ok(mut encoder) = Encoder::new(c) {
+                        let start = std::time::Instant::now();
                         if let Ok(frames) = encoder.encode(&yuv, 0) {
                             if frames.len() == 1 {
-                                if frames[0].key == 1 {
+                                if frames[0].key == 1
+                                    && start.elapsed().as_millis() < TEST_TIMEOUT_MS as _
+                                {
                                     infos.lock().unwrap().push(codec);
                                 }
                             }

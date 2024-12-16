@@ -2,7 +2,7 @@
 #define UTIL_H
 
 #include <string>
-
+#include <chrono>
 extern "C" {
 #include <libavcodec/avcodec.h>
 }
@@ -27,5 +27,19 @@ void vram_encode_test_callback(const uint8_t *data, int32_t len, int32_t key, co
 namespace util_decode {
     bool has_flag_could_not_find_ref_with_poc();
 }
+
+namespace util {
+
+    inline std::chrono::steady_clock::time_point now() {
+        return std::chrono::steady_clock::now();
+    }
+
+    inline int64_t elapsed_ms(std::chrono::steady_clock::time_point start) {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(now() - start).count();
+    }
+
+    bool luid_in_range(int64_t luid, const int64_t *luid_range, int32_t luid_range_count);
+}
+
 
 #endif
