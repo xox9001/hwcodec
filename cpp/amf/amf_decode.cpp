@@ -88,12 +88,7 @@ public:
     }
     AMF_CHECK_RETURN(res, "SubmitInput failed");
     amf::AMFDataPtr oData = NULL;
-    do {
-      res = AMFDecoder_->QueryOutput(&oData);
-      if (res == AMF_REPEAT) {
-        amf_sleep(1);
-      }
-    } while (res == AMF_REPEAT);
+    res = AMFDecoder_->QueryOutput(&oData);
     if (res == AMF_OK && oData != NULL) {
       amf::AMFSurfacePtr surface(oData);
       AMF_RETURN_IF_INVALID_POINTER(surface, L"surface is NULL");

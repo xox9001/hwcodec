@@ -193,7 +193,8 @@ private:
       return ret;
     }
 
-    while (ret >= 0) {
+    auto start = util::now();
+    while (ret >= 0 && util::elapsed_ms(start) < DECODE_TIMEOUT_MS) {
       if ((ret = avcodec_receive_frame(c_, frame_)) != 0) {
         if (ret != AVERROR(EAGAIN)) {
           LOG_ERROR("avcodec_receive_frame failed, ret = " + av_err2str(ret));

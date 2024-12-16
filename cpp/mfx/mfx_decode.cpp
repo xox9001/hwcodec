@@ -131,10 +131,10 @@ public:
     }
     setBitStream(&mfxBS, data, len);
 
-    int loop_counter = 0;
+    auto start = util::now();
     do {
-      if (loop_counter++ > 100) {
-        LOG_ERROR("mfx decode loop two many times");
+      if (util::elapsed_ms(start) > DECODE_TIMEOUT_MS) {
+        LOG_ERROR("decode timeout");
         break;
       }
       int nIndex =
