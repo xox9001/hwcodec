@@ -1,7 +1,7 @@
 
 #include "log.h"
 extern "C" {
-  #include <libavutil/log.h>
+#include <libavutil/log.h>
 }
 namespace gol {
 enum {
@@ -37,6 +37,7 @@ void trace(const std::string &message) {
 }
 
 void av_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
+  (void)ptr;
   if (level > av_log_get_level()) {
     return;
   }
@@ -46,7 +47,6 @@ void av_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
 };
 
 } // namespace gol
-
 
 extern "C" void hwcodec_set_av_log_callback() {
   av_log_set_callback(gol::av_log_callback);
