@@ -12,8 +12,6 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 
-#include "common.h"
-
 #define LOG_MODULE "FFMPEG_RAM_ENC"
 #include <log.h>
 #include <util.h>
