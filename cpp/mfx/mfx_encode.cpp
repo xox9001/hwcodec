@@ -456,10 +456,10 @@ private:
     mfxSyncPoint syncp;
     bool encoded = false;
 
-    auto start = util::now();
+    int loop_counter = 0;
     do {
-      if (util::elapsed_ms(start) > ENCODE_TIMEOUT_MS) {
-        LOG_ERROR("encode timeout");
+      if (loop_counter++ > 100) {
+        LOG_ERROR("mfx encode loop two many times");
         break;
       }
       mfxBS_.DataLength = 0;

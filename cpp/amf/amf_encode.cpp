@@ -129,7 +129,13 @@ public:
     AMF_CHECK_RETURN(res, "SubmitInput failed");
 
     amf::AMFDataPtr data = NULL;
-    res = AMFEncoder_->QueryOutput(&data);
+    do {
+      data = NULL;
+      res = AMFEncoder_->QueryOutput(&data);
+      if (res == AMF_REPEAT) {
+        amf_sleep(1);
+      }
+    } while (res == AMF_REPEAT);
     if (res == AMF_OK && data != NULL) {
       struct encoder_packet packet;
       PacketKeyframe(data, &packet);

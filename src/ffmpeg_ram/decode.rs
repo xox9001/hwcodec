@@ -161,26 +161,43 @@ impl Decoder {
         }
     }
 
-    pub fn available_decoders() -> Vec<CodecInfo> {
+    pub fn available_decoders(sdk: Option<String>) -> Vec<CodecInfo> {
         use std::{mem::MaybeUninit, sync::Once};
 
         static mut INSTANCE: MaybeUninit<Vec<CodecInfo>> = MaybeUninit::uninit();
         static ONCE: Once = Once::new();
 
         ONCE.call_once(|| unsafe {
-            INSTANCE.as_mut_ptr().write(Decoder::available_decoders_());
+            INSTANCE
+                .as_mut_ptr()
+                .write(Decoder::available_decoders_(sdk));
         });
         unsafe { (&*INSTANCE.as_ptr()).clone() }
     }
 
-    fn available_decoders_() -> Vec<CodecInfo> {
+    fn available_decoders_(_sdk: Option<String>) -> Vec<CodecInfo> {
         #[allow(unused_mut)]
         let mut codecs: Vec<CodecInfo> = vec![];
         // windows disable nvdec to avoid gpu stuck
         #[cfg(target_os = "linux")]
         {
             let (nv, _, _) = crate::common::supported_gpu(false);
-            if nv {
+            let contains = |_driver: Driver, _format: DataFormat| {
+                #[cfg(all(windows, feature = "vram"))]
+                {
+                    if let Some(_sdk) = _sdk.as_ref() {
+                        if !_sdk.is_empty() {
+                            if let Ok(available) =
+                                crate::vram::Available::deserialize(_sdk.as_str())
+                            {
+                                return available.contains(false, _driver, _format);
+                            }
+                        }
+                    }
+                }
+                true
+            };
+            if nv && contains(Driver::NV, H264) {
                 codecs.push(CodecInfo {
                     name: "h264".to_owned(),
                     format: H264,
@@ -188,6 +205,8 @@ impl Decoder {
                     priority: Priority::Good as _,
                     ..Default::default()
                 });
+            }
+            if nv && contains(Driver::NV, H265) {
                 codecs.push(CodecInfo {
                     name: "hevc".to_owned(),
                     format: H265,
