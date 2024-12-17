@@ -1,7 +1,6 @@
 #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
 use super::Priority;
-#[cfg(target_os = "linux")]
-use crate::common::{DataFormat, Driver};
+use crate::common::TEST_TIMEOUT_MS;
 use crate::ffmpeg::{init_av_log, AVHWDeviceType::*};
 
 use crate::{
@@ -160,43 +159,14 @@ impl Decoder {
         }
     }
 
-    pub fn available_decoders(sdk: Option<String>) -> Vec<CodecInfo> {
-        use std::{mem::MaybeUninit, sync::Once};
-
-        static mut INSTANCE: MaybeUninit<Vec<CodecInfo>> = MaybeUninit::uninit();
-        static ONCE: Once = Once::new();
-
-        ONCE.call_once(|| unsafe {
-            INSTANCE
-                .as_mut_ptr()
-                .write(Decoder::available_decoders_(sdk));
-        });
-        unsafe { (&*INSTANCE.as_ptr()).clone() }
-    }
-
-    fn available_decoders_(_sdk: Option<String>) -> Vec<CodecInfo> {
+    pub fn available_decoders() -> Vec<CodecInfo> {
         #[allow(unused_mut)]
         let mut codecs: Vec<CodecInfo> = vec![];
         // windows disable nvdec to avoid gpu stuck
         #[cfg(target_os = "linux")]
         {
             let (nv, _, _) = crate::common::supported_gpu(false);
-            let contains = |_driver: Driver, _format: DataFormat| {
-                #[cfg(all(windows, feature = "vram"))]
-                {
-                    if let Some(_sdk) = _sdk.as_ref() {
-                        if !_sdk.is_empty() {
-                            if let Ok(available) =
-                                crate::vram::Available::deserialize(_sdk.as_str())
-                            {
-                                return available.contains(false, _driver, _format);
-                            }
-                        }
-                    }
-                }
-                true
-            };
-            if nv && contains(Driver::NV, H264) {
+            if nv {
                 codecs.push(CodecInfo {
                     name: "h264".to_owned(),
                     format: H264,
@@ -204,8 +174,6 @@ impl Decoder {
                     priority: Priority::Good as _,
                     ..Default::default()
                 });
-            }
-            if nv && contains(Driver::NV, H265) {
                 codecs.push(CodecInfo {
                     name: "hevc".to_owned(),
                     format: H265,
@@ -301,7 +269,6 @@ impl Decoder {
                     device_type: codec.hwdevice,
                     thread_count: 4,
                 };
-                let start = Instant::now();
                 if let Ok(mut decoder) = Decoder::new(c) {
                     let data = match codec.format {
                         H264 => &buf264[..],
@@ -313,22 +280,10 @@ impl Decoder {
                     };
                     let start = Instant::now();
                     if let Ok(_) = decoder.decode(data) {
-                        infos.lock().unwrap().push(codec);
-                    } else {
-                        log::debug!(
-                            "name:{} device:{:?} decode failed:{:?}",
-                            codec.name,
-                            codec.hwdevice,
-                            start.elapsed()
-                        );
+                        if start.elapsed().as_millis() < TEST_TIMEOUT_MS as _ {
+                            infos.lock().unwrap().push(codec);
+                        }
                     }
-                } else {
-                    log::debug!(
-                        "name:{} device:{:?} new failed:{:?}",
-                        codec.name.clone(),
-                        codec.hwdevice,
-                        start.elapsed()
-                    );
                 }
             });
 

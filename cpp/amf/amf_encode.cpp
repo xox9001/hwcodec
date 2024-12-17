@@ -15,7 +15,7 @@
 #include "callback.h"
 #include "common.h"
 #include "system.h"
-#include "uitl.h"
+#include "util.h"
 
 #define LOG_MODULE "AMFENC"
 #include "log.h"
@@ -72,7 +72,7 @@ private:
   amf_wstring codec_;
   // const
   AMF_COLOR_BIT_DEPTH_ENUM eDepth_ = AMF_COLOR_BIT_DEPTH_8;
-  int query_timeout_ = 500;
+  int query_timeout_ = ENCODE_TIMEOUT_MS;
   int32_t bitRateIn_;
   int32_t frameRate_;
   int32_t gop_;
@@ -129,13 +129,7 @@ public:
     AMF_CHECK_RETURN(res, "SubmitInput failed");
 
     amf::AMFDataPtr data = NULL;
-    do {
-      data = NULL;
-      res = AMFEncoder_->QueryOutput(&data);
-      if (res == AMF_REPEAT) {
-        amf_sleep(1);
-      }
-    } while (res == AMF_REPEAT);
+    res = AMFEncoder_->QueryOutput(&data);
     if (res == AMF_OK && data != NULL) {
       struct encoder_packet packet;
       PacketKeyframe(data, &packet);
@@ -186,8 +180,10 @@ public:
     if (!native)
       return AMF_FAIL;
     int32_t key_obj = 0;
+    auto start = util::now();
     res = encode(native, util_encode::vram_encode_test_callback, &key_obj, 0);
-    if (res == AMF_OK && key_obj == 1) {
+    int64_t elapsed = util::elapsed_ms(start);
+    if (res == AMF_OK && key_obj == 1 && elapsed < TEST_TIMEOUT_MS) {
       return AMF_OK;
     }
     return AMF_FAIL;

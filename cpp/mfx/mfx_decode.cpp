@@ -8,6 +8,7 @@
 #include "callback.h"
 #include "common.h"
 #include "system.h"
+#include "util.h"
 
 #define LOG_MODULE "MFXDEC"
 #include "log.h"
@@ -130,10 +131,10 @@ public:
     }
     setBitStream(&mfxBS, data, len);
 
-    int loop_counter = 0;
+    auto start = util::now();
     do {
-      if (loop_counter++ > 100) {
-        LOG_ERROR("mfx decode loop two many times");
+      if (util::elapsed_ms(start) > DECODE_TIMEOUT_MS) {
+        LOG_ERROR("decode timeout");
         break;
       }
       int nIndex =
@@ -454,16 +455,19 @@ int mfx_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
           nullptr, LUID(adapter.get()->desc1_), api, dataFormat);
       if (!p)
         continue;
-      if (mfx_decode(p, data, length, nullptr, nullptr) == 0) {
+      auto start = util::now();
+      bool succ = mfx_decode(p, data, length, nullptr, nullptr) == 0;
+      int64_t elapsed = util::elapsed_ms(start);
+      if (succ && elapsed < TEST_TIMEOUT_MS) {
         AdapterDesc *desc = descs + count;
         desc->luid = LUID(adapter.get()->desc1_);
         count += 1;
-        p->destroy();
-        delete p;
-        p = nullptr;
-        if (count >= maxDescNum)
-          break;
       }
+      p->destroy();
+      delete p;
+      p = nullptr;
+      if (count >= maxDescNum)
+        break;
     }
     *outDescNum = count;
     return 0;

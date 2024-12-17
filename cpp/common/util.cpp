@@ -2,7 +2,7 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
-#include "uitl.h"
+#include "util.h"
 #include <limits>
 #include <map>
 #include <string.h>

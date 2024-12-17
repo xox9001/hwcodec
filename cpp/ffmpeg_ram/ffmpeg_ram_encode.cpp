@@ -12,9 +12,11 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 
+#include "common.h"
+
 #define LOG_MODULE "FFMPEG_RAM_ENC"
 #include <log.h>
-#include <uitl.h>
+#include <util.h>
 #ifdef _WIN32
 #include "win.h"
 #endif
@@ -343,7 +345,8 @@ private:
       return ret;
     }
 
-    while (ret >= 0) {
+    auto start = util::now();
+    while (ret >= 0 && util::elapsed_ms(start) < DECODE_TIMEOUT_MS) {
       if ((ret = avcodec_receive_packet(c_, pkt_)) < 0) {
         if (ret != AVERROR(EAGAIN)) {
           LOG_ERROR("avcodec_receive_packet failed, ret = " + av_err2str(ret));

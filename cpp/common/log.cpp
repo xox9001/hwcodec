@@ -37,6 +37,7 @@ void trace(const std::string &message) {
 }
 
 void av_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
+  (void)ptr;
   if (level > av_log_get_level()) {
     return;
   }

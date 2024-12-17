@@ -8,7 +8,7 @@
 #include "callback.h"
 #include "common.h"
 #include "system.h"
-#include "uitl.h"
+#include "util.h"
 
 #define LOG_MODULE "MFXENC"
 #include "log.h"
@@ -456,10 +456,10 @@ private:
     mfxSyncPoint syncp;
     bool encoded = false;
 
-    int loop_counter = 0;
+    auto start = util::now();
     do {
-      if (loop_counter++ > 100) {
-        LOG_ERROR("mfx encode loop two many times");
+      if (util::elapsed_ms(start) > ENCODE_TIMEOUT_MS) {
+        LOG_ERROR("encode timeout");
         break;
       }
       mfxBS_.DataLength = 0;
@@ -627,8 +627,11 @@ int mfx_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
       if (e->native_->EnsureTexture(e->width_, e->height_)) {
         e->native_->next();
         int32_t key_obj = 0;
-        if (mfx_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback, &key_obj,
-                       0) == 0 && key_obj == 1) {
+        auto start = util::now();
+        bool succ = mfx_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback, &key_obj,
+                       0) == 0 && key_obj == 1;
+        int64_t elapsed = util::elapsed_ms(start);
+        if (succ && elapsed < TEST_TIMEOUT_MS) {
           AdapterDesc *desc = descs + count;
           desc->luid = LUID(adapter.get()->desc1_);
           count += 1;

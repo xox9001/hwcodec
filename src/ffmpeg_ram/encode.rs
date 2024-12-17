@@ -1,7 +1,7 @@
 use crate::{
     common::{
         DataFormat::{self, *},
-        Quality, RateControl,
+        Quality, RateControl, TEST_TIMEOUT_MS,
     },
     ffmpeg::{init_av_log, AVPixelFormat},
     ffmpeg_ram::{
@@ -167,20 +167,7 @@ impl Encoder {
         Err(())
     }
 
-    pub fn available_encoders(ctx: EncodeContext, sdk: Option<String>) -> Vec<CodecInfo> {
-        static mut INSTANCE: Vec<CodecInfo> = vec![];
-        static mut CACHED_CTX: Option<EncodeContext> = None;
-
-        unsafe {
-            if CACHED_CTX.clone().take() != Some(ctx.clone()) {
-                CACHED_CTX = Some(ctx.clone());
-                INSTANCE = Encoder::available_encoders_(ctx, sdk);
-            }
-            INSTANCE.clone()
-        }
-    }
-
-    fn available_encoders_(ctx: EncodeContext, _sdk: Option<String>) -> Vec<CodecInfo> {
+    pub fn available_encoders(ctx: EncodeContext, _sdk: Option<String>) -> Vec<CodecInfo> {
         if !(cfg!(windows) || cfg!(target_os = "linux") || cfg!(target_os = "macos")) {
             return vec![];
         }
@@ -326,9 +313,12 @@ impl Encoder {
                         ..ctx
                     };
                     if let Ok(mut encoder) = Encoder::new(c) {
+                        let start = std::time::Instant::now();
                         if let Ok(frames) = encoder.encode(&yuv, 0) {
                             if frames.len() == 1 {
-                                if frames[0].key == 1 {
+                                if frames[0].key == 1
+                                    && start.elapsed().as_millis() < TEST_TIMEOUT_MS as _
+                                {
                                     infos.lock().unwrap().push(codec);
                                 }
                             }
