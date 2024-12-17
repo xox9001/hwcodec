@@ -37,7 +37,7 @@ fn ram() {
     let encoders = Encoder::available_encoders(ctx.clone(), None);
     encoders.iter().map(|e| println!("{:?}", e)).count();
     println!("decoders:");
-    let decoders = Decoder::available_decoders(None);
+    let decoders = Decoder::available_decoders();
     decoders.iter().map(|e| println!("{:?}", e)).count();
 }
 

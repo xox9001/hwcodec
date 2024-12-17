@@ -131,10 +131,10 @@ public:
     }
     setBitStream(&mfxBS, data, len);
 
-    int loop_counter = 0;
+    auto start = util::now();
     do {
-      if (loop_counter++ > 100) {
-        LOG_ERROR("mfx decode loop two many times");
+      if (util::elapsed_ms(start) > DECODE_TIMEOUT_MS) {
+        LOG_ERROR("decode timeout");
         break;
       }
       int nIndex =
@@ -442,7 +442,6 @@ int mfx_decode(void *decoder, uint8_t *data, int len, DecodeCallback callback,
 }
 
 int mfx_test_decode(AdapterDesc *outDescs, int32_t maxDescNum, int32_t *outDescNum,
-                    const int64_t *luid_range, int32_t luid_range_count,
                     API api, DataFormat dataFormat, uint8_t *data, int32_t length) {
   try {
     AdapterDesc *descs = (AdapterDesc *)outDescs;

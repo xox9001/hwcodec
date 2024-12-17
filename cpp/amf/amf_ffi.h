@@ -30,7 +30,6 @@ int amf_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
                     int32_t gop);
 
 int amf_test_decode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
-                    const int64_t *luid_range, int32_t luid_range_count,
                     int32_t api, int32_t dataFormat, uint8_t *data,
                     int32_t length);
 
