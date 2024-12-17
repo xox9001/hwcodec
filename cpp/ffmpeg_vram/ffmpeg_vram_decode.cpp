@@ -19,7 +19,7 @@ extern "C" {
 
 #define LOG_MODULE "FFMPEG_VRAM_DEC"
 #include <log.h>
-#include <uitl.h>
+#include <util.h>
 
 namespace {
 
@@ -193,7 +193,8 @@ private:
       return ret;
     }
 
-    while (ret >= 0) {
+    auto start = util::now();
+    while (ret >= 0 && util::elapsed_ms(start) < DECODE_TIMEOUT_MS) {
       if ((ret = avcodec_receive_frame(c_, frame_)) != 0) {
         if (ret != AVERROR(EAGAIN)) {
           LOG_ERROR("avcodec_receive_frame failed, ret = " + av_err2str(ret));
@@ -377,16 +378,19 @@ extern "C" int ffmpeg_vram_test_decode(AdapterDesc *outDescs,
             nullptr, LUID(adapter.get()->desc1_), api, dataFormat);
         if (!p)
           continue;
-        if (ffmpeg_vram_decode(p, data, length, nullptr, nullptr) == 0) {
+        auto start = util::now();
+        bool succ = ffmpeg_vram_decode(p, data, length, nullptr, nullptr) == 0;
+        int64_t elapsed = util::elapsed_ms(start);
+        if (succ && elapsed < TEST_TIMEOUT_MS) {
           AdapterDesc *desc = descs + count;
           desc->luid = LUID(adapter.get()->desc1_);
           count += 1;
-          p->destroy();
-          delete p;
-          p = nullptr;
-          if (count >= maxDescNum)
-            break;
         }
+        p->destroy();
+        delete p;
+        p = nullptr;
+        if (count >= maxDescNum)
+          break;
       }
       if (count >= maxDescNum)
         break;

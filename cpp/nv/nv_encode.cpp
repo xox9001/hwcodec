@@ -1,7 +1,6 @@
 #define FFNV_LOG_FUNC
 #define FFNV_DEBUG_LOG_FUNC
 
-#include <Samples/NvCodec/NvEncoder/NvEncoderCuda.h>
 #include <Samples/NvCodec/NvEncoder/NvEncoderD3D11.h>
 #include <Samples/Utils/Logger.h>
 #include <Samples/Utils/NvCodecUtils.h>
@@ -22,7 +21,7 @@ using Microsoft::WRL::ComPtr;
 #include "callback.h"
 #include "common.h"
 #include "system.h"
-#include "uitl.h"
+#include "util.h"
 
 #define LOG_MODULE "NVENC"
 #include "log.h"
@@ -219,10 +218,10 @@ public:
     NV_ENC_CONFIG_H264 *h264 = &encodeCodecConfig->h264Config;
     NV_ENC_CONFIG_H264_VUI_PARAMETERS *vui = &h264->h264VUIParameters;
     vui->videoFullRangeFlag = !!full_range_;
-    vui->colourMatrix = bt709_ ? AVCOL_SPC_BT709 : AVCOL_SPC_SMPTE170M;
-    vui->colourPrimaries = bt709_ ? AVCOL_PRI_BT709 : AVCOL_PRI_SMPTE170M;
+    vui->colourMatrix = bt709_ ? NV_ENC_VUI_MATRIX_COEFFS_BT709 : NV_ENC_VUI_MATRIX_COEFFS_SMPTE170M;
+    vui->colourPrimaries = bt709_ ? NV_ENC_VUI_COLOR_PRIMARIES_BT709 : NV_ENC_VUI_COLOR_PRIMARIES_SMPTE170M;
     vui->transferCharacteristics =
-        bt709_ ? AVCOL_TRC_BT709 : AVCOL_TRC_SMPTE170M;
+        bt709_ ? NV_ENC_VUI_TRANSFER_CHARACTERISTIC_BT709 : NV_ENC_VUI_TRANSFER_CHARACTERISTIC_SMPTE170M;
     vui->colourDescriptionPresentFlag = 1;
     vui->videoSignalTypePresentFlag = 1;
 
@@ -240,12 +239,12 @@ public:
   void setup_hevc(NV_ENC_CONFIG *encodeConfig) {
     NV_ENC_CODEC_CONFIG *encodeCodecConfig = &encodeConfig->encodeCodecConfig;
     NV_ENC_CONFIG_HEVC *hevc = &encodeCodecConfig->hevcConfig;
-    NV_ENC_CONFIG_H264_VUI_PARAMETERS *vui = &hevc->hevcVUIParameters;
+    NV_ENC_CONFIG_HEVC_VUI_PARAMETERS *vui = &hevc->hevcVUIParameters;
     vui->videoFullRangeFlag = !!full_range_;
-    vui->colourMatrix = bt709_ ? AVCOL_SPC_BT709 : AVCOL_SPC_SMPTE170M;
-    vui->colourPrimaries = bt709_ ? AVCOL_PRI_BT709 : AVCOL_PRI_SMPTE170M;
+    vui->colourMatrix = bt709_ ? NV_ENC_VUI_MATRIX_COEFFS_BT709 : NV_ENC_VUI_MATRIX_COEFFS_SMPTE170M;
+    vui->colourPrimaries = bt709_ ? NV_ENC_VUI_COLOR_PRIMARIES_BT709 : NV_ENC_VUI_COLOR_PRIMARIES_SMPTE170M;
     vui->transferCharacteristics =
-        bt709_ ? AVCOL_TRC_BT709 : AVCOL_TRC_SMPTE170M;
+        bt709_ ? NV_ENC_VUI_TRANSFER_CHARACTERISTIC_BT709 : NV_ENC_VUI_TRANSFER_CHARACTERISTIC_SMPTE170M;
     vui->colourDescriptionPresentFlag = 1;
     vui->videoSignalTypePresentFlag = 1;
 
@@ -411,8 +410,11 @@ int nv_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
       if (e->native_->EnsureTexture(e->width_, e->height_)) {
         e->native_->next();
         int32_t key_obj = 0;
-        if (nv_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback, &key_obj,
-                      0) == 0 && key_obj == 1) {
+        auto start = util::now();
+        bool succ = nv_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback, &key_obj,
+                      0) == 0 && key_obj == 1;
+        int64_t elapsed = util::elapsed_ms(start);
+        if (succ && elapsed < TEST_TIMEOUT_MS) {
           AdapterDesc *desc = descs + count;
           desc->luid = LUID(adapter.get()->desc1_);
           count += 1;

@@ -22,7 +22,7 @@ extern "C" {
 
 #define LOG_MODULE "FFMPEG_VRAM_ENC"
 #include <log.h>
-#include <uitl.h>
+#include <util.h>
 
 namespace {
 
@@ -322,7 +322,8 @@ private:
       return ret;
     }
 
-    while (ret >= 0) {
+    auto start = util::now();
+    while (ret >= 0 && util::elapsed_ms(start) < ENCODE_TIMEOUT_MS) {
       if ((ret = avcodec_receive_packet(c_, pkt_)) < 0) {
         if (ret != AVERROR(EAGAIN)) {
           LOG_ERROR("avcodec_receive_packet failed, ret = " + av_err2str(ret));
@@ -516,8 +517,11 @@ int ffmpeg_vram_test_encode(void *outDescs, int32_t maxDescNum,
         if (e->native_->EnsureTexture(e->width_, e->height_)) {
           e->native_->next();
           int32_t key_obj = 0;
-          if (ffmpeg_vram_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback,
-                                 &key_obj, 0) == 0 && key_obj == 1) {
+          auto start = util::now();
+          bool succ = ffmpeg_vram_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback,
+                                 &key_obj, 0) == 0 && key_obj == 1;
+          int64_t elapsed = util::elapsed_ms(start);
+          if (succ && elapsed < TEST_TIMEOUT_MS) {
             AdapterDesc *desc = descs + count;
             desc->luid = LUID(adapter.get()->desc1_);
             count += 1;

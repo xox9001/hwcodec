@@ -13,7 +13,7 @@ extern "C" {
 
 #define LOG_MODULE "FFMPEG_RAM_DEC"
 #include <log.h>
-#include <uitl.h>
+#include <util.h>
 
 #ifdef _WIN32
 #include <libavutil/hwcontext_d3d11va.h>
@@ -183,8 +183,8 @@ private:
       LOG_ERROR("avcodec_send_packet failed, ret = " + av_err2str(ret));
       return ret;
     }
-
-    while (ret >= 0) {
+    auto start = util::now();
+    while (ret >= 0 && util::elapsed_ms(start) < ENCODE_TIMEOUT_MS) {
       if ((ret = avcodec_receive_frame(c_, frame_)) != 0) {
         if (ret != AVERROR(EAGAIN)) {
           LOG_ERROR("avcodec_receive_frame failed, ret = " + av_err2str(ret));
