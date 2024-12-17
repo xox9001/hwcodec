@@ -5,8 +5,6 @@
 
 #define MAX_GOP 0x7FFFFFFF // i32 max
 
-#define TEST_TIMEOUT_MS 300
-
 enum AdapterVendor {
   ADAPTER_VENDOR_AMD = 0x1002,
   ADAPTER_VENDOR_INTEL = 0x8086,
