@@ -121,12 +121,6 @@ pub fn available() -> Vec<DecodeContext> {
     //         .collect(),
     // );
     codecs.append(
-        &mut ffmpeg::possible_support_decoders()
-            .drain(..)
-            .map(|n| (FFMPEG, n))
-            .collect(),
-    );
-    codecs.append(
         &mut amf::possible_support_decoders()
             .drain(..)
             .map(|n| (AMF, n))
@@ -138,10 +132,27 @@ pub fn available() -> Vec<DecodeContext> {
             .map(|n| (MFX, n))
             .collect(),
     );
-    do_test(codecs)
+    let mut result = do_test(codecs, vec![]);
+    let ffmpeg_possible_support_decoders = ffmpeg::possible_support_decoders();
+    for format in [H264, H265] {
+        let luids: Vec<_> = result
+            .iter()
+            .filter(|e| e.data_format == format)
+            .map(|e| e.luid)
+            .collect();
+        let v: Vec<_> = ffmpeg_possible_support_decoders
+            .clone()
+            .drain(..)
+            .filter(|e| e.data_format == format)
+            .map(|n| (FFMPEG, n))
+            .collect();
+        let mut v = do_test(v, luids);
+        result.append(&mut v);
+    }
+    result
 }
 
-fn do_test(codecs: Vec<(Driver, InnerDecodeContext)>) -> Vec<DecodeContext> {
+fn do_test(codecs: Vec<(Driver, InnerDecodeContext)>, luid_range: Vec<i64>) -> Vec<DecodeContext> {
     let mut codecs = codecs;
     let inputs = codecs.drain(..).map(|(driver, n)| DecodeContext {
         device: None,
@@ -160,6 +171,7 @@ fn do_test(codecs: Vec<(Driver, InnerDecodeContext)>) -> Vec<DecodeContext> {
         let buf264 = buf264.clone();
         let buf265 = buf265.clone();
         let mutex = mutex.clone();
+        let luid_range = luid_range.clone();
         let handle = thread::spawn(move || {
             let _lock;
             if input.driver == NV || input.driver == FFMPEG {
@@ -184,6 +196,8 @@ fn do_test(codecs: Vec<(Driver, InnerDecodeContext)>) -> Vec<DecodeContext> {
                     descs.as_mut_ptr() as _,
                     descs.len() as _,
                     &mut desc_count,
+                    luid_range.as_ptr(),
+                    luid_range.len() as _,
                     input.api as _,
                     input.data_format as i32,
                     data.as_ptr() as *mut u8,

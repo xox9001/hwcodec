@@ -193,8 +193,7 @@ private:
       return ret;
     }
 
-    auto start = util::now();
-    while (ret >= 0 && util::elapsed_ms(start) < DECODE_TIMEOUT_MS) {
+    while (ret >= 0) {
       if ((ret = avcodec_receive_frame(c_, frame_)) != 0) {
         if (ret != AVERROR(EAGAIN)) {
           LOG_ERROR("avcodec_receive_frame failed, ret = " + av_err2str(ret));
@@ -361,6 +360,7 @@ extern "C" int ffmpeg_vram_decode(FFmpegVRamDecoder *decoder,
 }
 
 extern "C" int ffmpeg_vram_test_decode(AdapterDesc *outDescs, int32_t maxDescNum, int32_t *outDescNum,
+                                       const int64_t *luid_range, int32_t luid_range_count,
                                        API api, DataFormat dataFormat,
                                        uint8_t *data, int32_t length) {
   try {
@@ -368,12 +368,28 @@ extern "C" int ffmpeg_vram_test_decode(AdapterDesc *outDescs, int32_t maxDescNum
     int count = 0;
     AdapterVendor vendors[] = {ADAPTER_VENDOR_INTEL, ADAPTER_VENDOR_NVIDIA,
                                ADAPTER_VENDOR_AMD};
+    #include "../nv/nv_ffi.h"
+    #include "../amf/amf_ffi.h"
+    bool support_nv  = nv_decode_driver_support() == 0;
+    bool support_amf = amf_driver_support() == 0;
     for (auto vendor : vendors) {
       Adapters adapters;
       if (!adapters.Init(vendor))
         continue;
       for (auto &adapter : adapters.adapters_) {
         int64_t luid = LUID(adapter.get()->desc1_);
+        if (vendor == ADAPTER_VENDOR_NVIDIA) {
+          // nv sdk decode is disabled, so nv only check driver support
+          if (!support_nv)
+            continue;
+        } else if (vendor == ADAPTER_VENDOR_AMD && dataFormat == H265) {
+          // amf sdk h265 is disabled, so amf h265 only check driver support
+          if (!support_amf)
+            continue;
+        } else {
+          if (!util::luid_in_range(luid, luid_range, luid_range_count))
+            continue;
+        }
         FFmpegVRamDecoder *p = (FFmpegVRamDecoder *)ffmpeg_vram_new_decoder(
             nullptr, luid, api, dataFormat);
         if (!p)

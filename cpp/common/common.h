@@ -6,8 +6,6 @@
 #define MAX_GOP 0x7FFFFFFF // i32 max
 
 #define TEST_TIMEOUT_MS 300
-#define ENCODE_TIMEOUT_MS 1000
-#define DECODE_TIMEOUT_MS 1000
 
 enum AdapterVendor {
   ADAPTER_VENDOR_AMD = 0x1002,
