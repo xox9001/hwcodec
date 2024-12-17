@@ -99,22 +99,33 @@ public:
       // convert texture
       amf::AMFDataPtr convertData;
       res = Convert(surface, convertData);
+      AMF_CHECK_RETURN(res, "Convert failed");
       amf::AMFSurfacePtr convertSurface(convertData);
+      if (!convertSurface || convertSurface->GetPlanesCount() == 0)
+        return AMF_FAIL;
 
       // For DirectX objects, when a pointer to a COM interface is returned,
       // GetNative does not call IUnknown::AddRef on the interface being
       // returned.
       void *native = convertSurface->GetPlaneAt(0)->GetNative();
+      if (!native)
+        return AMF_FAIL;
       switch (convertSurface->GetMemoryType()) {
       case amf::AMF_MEMORY_DX11: {
-        nativeDevice_->next();
-        if (!nativeDevice_->SetTexture((ID3D11Texture2D *)native)) {
-          LOG_ERROR("SetTexture failed");
-          return AMF_FAIL;
+        {
+          ID3D11Texture2D *src = (ID3D11Texture2D *)native;
+          D3D11_TEXTURE2D_DESC desc;
+          src->GetDesc(&desc);
+          nativeDevice_->EnsureTexture(desc.Width, desc.Height);
+          nativeDevice_->next();
+          ID3D11Texture2D *dst = nativeDevice_->GetCurrentTexture();
+          nativeDevice_->context_->CopyResource(dst, src);
+          nativeDevice_->context_->Flush();
+          if (callback)
+            callback(dst, obj);
+          decoded = true;
         }
-        if (callback)
-          callback(nativeDevice_->GetCurrentTexture(), obj);
-        decoded = true;
+        break;
       } break;
       case amf::AMF_MEMORY_OPENCL: {
         uint8_t *buf = (uint8_t *)native;
