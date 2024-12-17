@@ -8,7 +8,6 @@
 #include "callback.h"
 #include "common.h"
 #include "system.h"
-#include "util.h"
 
 #define LOG_MODULE "MFXDEC"
 #include "log.h"
@@ -441,9 +440,9 @@ int mfx_decode(void *decoder, uint8_t *data, int len, DecodeCallback callback,
   return HWCODEC_ERR_COMMON;
 }
 
-int mfx_test_decode(AdapterDesc *outDescs, int32_t maxDescNum, int32_t *outDescNum,
-                    const int64_t *luid_range, int32_t luid_range_count,
-                    API api, DataFormat dataFormat, uint8_t *data, int32_t length) {
+int mfx_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
+                    int32_t *outDescNum, API api, DataFormat dataFormat,
+                    uint8_t *data, int32_t length) {
   try {
     AdapterDesc *descs = (AdapterDesc *)outDescs;
     Adapters adapters;
@@ -455,19 +454,16 @@ int mfx_test_decode(AdapterDesc *outDescs, int32_t maxDescNum, int32_t *outDescN
           nullptr, LUID(adapter.get()->desc1_), api, dataFormat);
       if (!p)
         continue;
-      auto start = util::now();
-      bool succ = mfx_decode(p, data, length, nullptr, nullptr) == 0;
-      int64_t elapsed = util::elapsed_ms(start);
-      if (succ && elapsed < TEST_TIMEOUT_MS) {
+      if (mfx_decode(p, data, length, nullptr, nullptr) == 0) {
         AdapterDesc *desc = descs + count;
         desc->luid = LUID(adapter.get()->desc1_);
         count += 1;
+        p->destroy();
+        delete p;
+        p = nullptr;
+        if (count >= maxDescNum)
+          break;
       }
-      p->destroy();
-      delete p;
-      p = nullptr;
-      if (count >= maxDescNum)
-        break;
     }
     *outDescNum = count;
     return 0;

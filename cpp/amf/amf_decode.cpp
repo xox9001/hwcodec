@@ -12,7 +12,6 @@
 #include "callback.h"
 #include "common.h"
 #include "system.h"
-#include "util.h"
 
 #define LOG_MODULE "AMFDEC"
 #include "log.h"
@@ -396,9 +395,9 @@ int amf_decode(void *decoder, uint8_t *data, int32_t length,
   return HWCODEC_ERR_COMMON;
 }
 
-int amf_test_decode(AdapterDesc *outDescs, int32_t maxDescNum, int32_t *outDescNum,
-                    const int64_t *luid_range, int32_t luid_range_count,
-                    API api, DataFormat dataFormat, uint8_t *data, int32_t length) {
+int amf_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
+                    int32_t *outDescNum, API api, DataFormat dataFormat,
+                    uint8_t *data, int32_t length) {
   try {
     AdapterDesc *descs = (AdapterDesc *)outDescs;
     Adapters adapters;
@@ -410,19 +409,16 @@ int amf_test_decode(AdapterDesc *outDescs, int32_t maxDescNum, int32_t *outDescN
           nullptr, LUID(adapter.get()->desc1_), api, dataFormat);
       if (!p)
         continue;
-      auto start = util::now();
-      bool succ = p->decode(data, length, nullptr, nullptr) == AMF_OK;
-      int64_t elapsed = util::elapsed_ms(start);
-      if (succ && elapsed < TEST_TIMEOUT_MS) {
+      if (p->decode(data, length, nullptr, nullptr) == AMF_OK) {
         AdapterDesc *desc = descs + count;
         desc->luid = LUID(adapter.get()->desc1_);
         count += 1;
+        p->destroy();
+        delete p;
+        p = nullptr;
+        if (count >= maxDescNum)
+          break;
       }
-      p->destroy();
-      delete p;
-      p = nullptr;
-      if (count >= maxDescNum)
-        break;
     }
     *outDescNum = count;
     return 0;

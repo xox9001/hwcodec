@@ -22,7 +22,7 @@ extern "C" {
 
 #define LOG_MODULE "FFMPEG_VRAM_ENC"
 #include <log.h>
-#include <util.h>
+#include <uitl.h>
 
 namespace {
 
@@ -494,9 +494,8 @@ int ffmpeg_vram_set_framerate(FFmpegVRamEncoder *encoder, int32_t framerate) {
   return -1;
 }
 
-int ffmpeg_vram_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum, 
-                            const int64_t *luid_range, int32_t luid_range_count,
-                            API api, DataFormat dataFormat,
+int ffmpeg_vram_test_encode(void *outDescs, int32_t maxDescNum,
+                            int32_t *outDescNum, API api, DataFormat dataFormat,
                             int32_t width, int32_t height, int32_t kbs,
                             int32_t framerate, int32_t gop) {
   try {
@@ -509,24 +508,18 @@ int ffmpeg_vram_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDesc
       if (!adapters.Init(vendor))
         continue;
       for (auto &adapter : adapters.adapters_) {
-        int64_t luid = LUID(adapter.get()->desc1_);
-        if (!util::luid_in_range(luid, luid_range, luid_range_count))
-          continue;
         FFmpegVRamEncoder *e = (FFmpegVRamEncoder *)ffmpeg_vram_new_encoder(
-            (void *)adapter.get()->device_.Get(), luid,
+            (void *)adapter.get()->device_.Get(), LUID(adapter.get()->desc1_),
             api, dataFormat, width, height, kbs, framerate, gop);
         if (!e)
           continue;
         if (e->native_->EnsureTexture(e->width_, e->height_)) {
           e->native_->next();
           int32_t key_obj = 0;
-          auto start = util::now();
-          bool succ = ffmpeg_vram_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback,
-                                 &key_obj, 0) == 0 && key_obj == 1;
-          int64_t elapsed = util::elapsed_ms(start);
-          if (succ && elapsed < TEST_TIMEOUT_MS) {
+          if (ffmpeg_vram_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback,
+                                 &key_obj, 0) == 0 && key_obj == 1) {
             AdapterDesc *desc = descs + count;
-            desc->luid = luid;
+            desc->luid = LUID(adapter.get()->desc1_);
             count += 1;
           }
         }
