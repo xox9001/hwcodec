@@ -10,7 +10,6 @@ int ffmpeg_vram_decode(void *decoder, uint8_t *data, int len,
                        DecodeCallback callback, void *obj);
 int ffmpeg_vram_destroy_decoder(void *decoder);
 int ffmpeg_vram_test_decode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
-                            const int64_t *luid_range, int32_t luid_range_count,
                             int32_t api, int32_t dataFormat, uint8_t *data, int32_t length);
 void *ffmpeg_vram_new_encoder(void *handle, int64_t luid, int32_t api,
                               int32_t dataFormat, int32_t width, int32_t height,

@@ -442,7 +442,6 @@ int mfx_decode(void *decoder, uint8_t *data, int len, DecodeCallback callback,
 }
 
 int mfx_test_decode(AdapterDesc *outDescs, int32_t maxDescNum, int32_t *outDescNum,
-                    const int64_t *luid_range, int32_t luid_range_count,
                     API api, DataFormat dataFormat, uint8_t *data, int32_t length) {
   try {
     AdapterDesc *descs = (AdapterDesc *)outDescs;
