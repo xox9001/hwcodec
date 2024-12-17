@@ -72,7 +72,7 @@ private:
   amf_wstring codec_;
   // const
   AMF_COLOR_BIT_DEPTH_ENUM eDepth_ = AMF_COLOR_BIT_DEPTH_8;
-  int query_timeout_ = 1000;
+  int query_timeout_ = 500;
   int32_t bitRateIn_;
   int32_t frameRate_;
   int32_t gop_;

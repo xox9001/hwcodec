@@ -1,6 +1,7 @@
 #define FFNV_LOG_FUNC
 #define FFNV_DEBUG_LOG_FUNC
 
+#include <Samples/NvCodec/NvEncoder/NvEncoderCuda.h>
 #include <Samples/NvCodec/NvEncoder/NvEncoderD3D11.h>
 #include <Samples/Utils/Logger.h>
 #include <Samples/Utils/NvCodecUtils.h>
@@ -218,10 +219,10 @@ public:
     NV_ENC_CONFIG_H264 *h264 = &encodeCodecConfig->h264Config;
     NV_ENC_CONFIG_H264_VUI_PARAMETERS *vui = &h264->h264VUIParameters;
     vui->videoFullRangeFlag = !!full_range_;
-    vui->colourMatrix = bt709_ ? NV_ENC_VUI_MATRIX_COEFFS_BT709 : NV_ENC_VUI_MATRIX_COEFFS_SMPTE170M;
-    vui->colourPrimaries = bt709_ ? NV_ENC_VUI_COLOR_PRIMARIES_BT709 : NV_ENC_VUI_COLOR_PRIMARIES_SMPTE170M;
+    vui->colourMatrix = bt709_ ? AVCOL_SPC_BT709 : AVCOL_SPC_SMPTE170M;
+    vui->colourPrimaries = bt709_ ? AVCOL_PRI_BT709 : AVCOL_PRI_SMPTE170M;
     vui->transferCharacteristics =
-        bt709_ ? NV_ENC_VUI_TRANSFER_CHARACTERISTIC_BT709 : NV_ENC_VUI_TRANSFER_CHARACTERISTIC_SMPTE170M;
+        bt709_ ? AVCOL_TRC_BT709 : AVCOL_TRC_SMPTE170M;
     vui->colourDescriptionPresentFlag = 1;
     vui->videoSignalTypePresentFlag = 1;
 
@@ -239,12 +240,12 @@ public:
   void setup_hevc(NV_ENC_CONFIG *encodeConfig) {
     NV_ENC_CODEC_CONFIG *encodeCodecConfig = &encodeConfig->encodeCodecConfig;
     NV_ENC_CONFIG_HEVC *hevc = &encodeCodecConfig->hevcConfig;
-    NV_ENC_CONFIG_HEVC_VUI_PARAMETERS *vui = &hevc->hevcVUIParameters;
+    NV_ENC_CONFIG_H264_VUI_PARAMETERS *vui = &hevc->hevcVUIParameters;
     vui->videoFullRangeFlag = !!full_range_;
-    vui->colourMatrix = bt709_ ? NV_ENC_VUI_MATRIX_COEFFS_BT709 : NV_ENC_VUI_MATRIX_COEFFS_SMPTE170M;
-    vui->colourPrimaries = bt709_ ? NV_ENC_VUI_COLOR_PRIMARIES_BT709 : NV_ENC_VUI_COLOR_PRIMARIES_SMPTE170M;
+    vui->colourMatrix = bt709_ ? AVCOL_SPC_BT709 : AVCOL_SPC_SMPTE170M;
+    vui->colourPrimaries = bt709_ ? AVCOL_PRI_BT709 : AVCOL_PRI_SMPTE170M;
     vui->transferCharacteristics =
-        bt709_ ? NV_ENC_VUI_TRANSFER_CHARACTERISTIC_BT709 : NV_ENC_VUI_TRANSFER_CHARACTERISTIC_SMPTE170M;
+        bt709_ ? AVCOL_TRC_BT709 : AVCOL_TRC_SMPTE170M;
     vui->colourDescriptionPresentFlag = 1;
     vui->videoSignalTypePresentFlag = 1;
 

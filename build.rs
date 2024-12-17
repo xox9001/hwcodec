@@ -57,7 +57,7 @@ fn build_common(builder: &mut Build) {
         let externals_dir = manifest_dir.join("externals");
         // ffnvcodec
         let ffnvcodec_path = externals_dir
-            .join("nv-codec-headers_n12.1.14.0")
+            .join("nv-codec-headers_n11.1.5.2")
             .join("include")
             .join("ffnvcodec");
         builder.include(ffnvcodec_path);
@@ -315,13 +315,13 @@ mod sdk {
 
         // ffnvcodec
         let ffnvcodec_path = externals_dir
-            .join("nv-codec-headers_n12.1.14.0")
+            .join("nv-codec-headers_n11.1.5.2")
             .join("include")
             .join("ffnvcodec");
         builder.include(ffnvcodec_path);
 
         // video codc sdk
-        let sdk_path = externals_dir.join("Video_Codec_SDK_12.1.14");
+        let sdk_path = externals_dir.join("Video_Codec_SDK_11.1.5");
         builder.includes([
             sdk_path.clone(),
             sdk_path.join("Interface"),
@@ -331,7 +331,7 @@ mod sdk {
             sdk_path.join("Samples").join("NvCodec").join("NVDecoder"),
         ]);
 
-        for file in vec!["NvEncoder.cpp", "NvEncoderD3D11.cpp"] {
+        for file in vec!["NvEncoder.cpp", "NvEncoderCuda.cpp", "NvEncoderD3D11.cpp"] {
             builder.file(
                 sdk_path
                     .join("Samples")
@@ -375,7 +375,7 @@ mod sdk {
         println!("cargo:rustc-link-lib=stdc++");
 
         // amf
-        let amf_path = externals_dir.join("AMF_v1.4.35");
+        let amf_path = externals_dir.join("AMF_v1.4.29");
         builder.include(format!("{}/amf/public/common", amf_path.display()));
         builder.include(amf_path.join("amf"));
 
