@@ -1,8 +1,6 @@
 #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
 use super::Priority;
 use crate::common::TEST_TIMEOUT_MS;
-#[cfg(target_os = "linux")]
-use crate::common::{DataFormat, Driver};
 use crate::ffmpeg::{init_av_log, AVHWDeviceType::*};
 
 use crate::{
@@ -162,18 +160,6 @@ impl Decoder {
     }
 
     pub fn available_decoders() -> Vec<CodecInfo> {
-        use std::{mem::MaybeUninit, sync::Once};
-
-        static mut INSTANCE: MaybeUninit<Vec<CodecInfo>> = MaybeUninit::uninit();
-        static ONCE: Once = Once::new();
-
-        ONCE.call_once(|| unsafe {
-            INSTANCE.as_mut_ptr().write(Decoder::available_decoders_());
-        });
-        unsafe { (&*INSTANCE.as_ptr()).clone() }
-    }
-
-    fn available_decoders_() -> Vec<CodecInfo> {
         #[allow(unused_mut)]
         let mut codecs: Vec<CodecInfo> = vec![];
         // windows disable nvdec to avoid gpu stuck
