@@ -204,6 +204,10 @@ struct CodecOptions {
 
 bool set_rate_control(AVCodecContext *c, const std::string &name, int rc,
                       int q) {
+  if (name.find("qsv") != std::string::npos) {
+    // https://github.com/LizardByte/Sunshine/blob/3e47cd3cc8fd37a7a88be82444ff4f3c0022856b/src/video.cpp#L1635
+    c->strict_std_compliance = FF_COMPLIANCE_UNOFFICIAL;
+  }
   std::vector<CodecOptions> codecs = {
       {"nvenc", "rc", {{RC_CBR, "cbr"}, {RC_VBR, "vbr"}}},
       {"amf", "rc", {{RC_CBR, "cbr"}, {RC_VBR, "vbr_latency"}}},
