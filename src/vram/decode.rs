@@ -4,11 +4,7 @@ use crate::{
     vram::{amf, ffmpeg, inner::DecodeCalls, mfx, nv, DecodeContext},
 };
 use log::trace;
-use std::{
-    ffi::c_void,
-    sync::{Arc, Mutex},
-    thread,
-};
+use std::ffi::c_void;
 
 pub struct Decoder {
     calls: DecodeCalls,
@@ -108,6 +104,8 @@ pub struct DecodeFrame {
 }
 
 pub fn available() -> Vec<DecodeContext> {
+    use log::debug;
+
     let mut codecs: Vec<_> = vec![];
     // disable nv sdk decode
     // codecs.append(
@@ -134,67 +132,79 @@ pub fn available() -> Vec<DecodeContext> {
             .map(|n| (MFX, n))
             .collect(),
     );
-    let inputs = codecs.drain(..).map(|(driver, n)| DecodeContext {
-        device: None,
-        driver,
-        data_format: n.data_format,
-        api: n.api,
-        luid: 0,
-    });
-    let outputs = Arc::new(Mutex::new(Vec::<DecodeContext>::new()));
-    let buf264 = Arc::new(crate::common::DATA_H264_720P);
-    let buf265 = Arc::new(crate::common::DATA_H265_720P);
-    let mut handles = vec![];
-    let mutex = Arc::new(Mutex::new(0));
+
+    let inputs: Vec<DecodeContext> = codecs
+        .drain(..)
+        .map(|(driver, n)| DecodeContext {
+            device: None,
+            driver,
+            data_format: n.data_format,
+            api: n.api,
+            luid: 0,
+        })
+        .collect();
+
+    let mut outputs = Vec::<DecodeContext>::new();
+    let buf264 = &crate::common::DATA_H264_720P[..];
+    let buf265 = &crate::common::DATA_H265_720P[..];
+
     for input in inputs {
-        let outputs = outputs.clone();
-        let buf264 = buf264.clone();
-        let buf265 = buf265.clone();
-        let mutex = mutex.clone();
-        let handle = thread::spawn(move || {
-            let _lock;
-            if input.driver == NV || input.driver == FFMPEG {
-                _lock = mutex.lock().unwrap();
+        debug!(
+            "Testing vram decoder: driver={:?}, api={:?}, format={:?}",
+            input.driver, input.api, input.data_format
+        );
+
+        let test = match input.driver {
+            NV => nv::decode_calls().test,
+            AMF => amf::decode_calls().test,
+            MFX => mfx::decode_calls().test,
+            FFMPEG => ffmpeg::decode_calls().test,
+        };
+
+        let mut descs: Vec<AdapterDesc> = vec![];
+        descs.resize(crate::vram::MAX_ADATERS, unsafe { std::mem::zeroed() });
+        let mut desc_count: i32 = 0;
+
+        let data = match input.data_format {
+            H264 => buf264,
+            H265 => buf265,
+            _ => {
+                debug!("Unsupported data format: {:?}, skipping", input.data_format);
+                continue;
             }
-            let test = match input.driver {
-                NV => nv::decode_calls().test,
-                AMF => amf::decode_calls().test,
-                MFX => mfx::decode_calls().test,
-                FFMPEG => ffmpeg::decode_calls().test,
-            };
-            let mut descs: Vec<AdapterDesc> = vec![];
-            descs.resize(crate::vram::MAX_ADATERS, unsafe { std::mem::zeroed() });
-            let mut desc_count: i32 = 0;
-            let data = match input.data_format {
-                H264 => &buf264[..],
-                H265 => &buf265[..],
-                _ => return,
-            };
-            if 0 == unsafe {
-                test(
-                    descs.as_mut_ptr() as _,
-                    descs.len() as _,
-                    &mut desc_count,
-                    input.api as _,
-                    input.data_format as i32,
-                    data.as_ptr() as *mut u8,
-                    data.len() as _,
-                )
-            } {
-                if desc_count as usize <= descs.len() {}
+        };
+
+        let result = unsafe {
+            test(
+                descs.as_mut_ptr() as _,
+                descs.len() as _,
+                &mut desc_count,
+                input.api as _,
+                input.data_format as i32,
+                data.as_ptr() as *mut u8,
+                data.len() as _,
+            )
+        };
+
+        if result == 0 {
+            if desc_count as usize <= descs.len() {
+                debug!(
+                    "vram decoder test passed: driver={:?}, adapters={}",
+                    input.driver, desc_count
+                );
                 for i in 0..desc_count as usize {
                     let mut input = input.clone();
                     input.luid = descs[i].luid;
-                    outputs.lock().unwrap().push(input);
+                    outputs.push(input);
                 }
             }
-        });
+        } else {
+            debug!(
+                "vram decoder test failed: driver={:?}, error={}",
+                input.driver, result
+            );
+        }
+    }
 
-        handles.push(handle);
-    }
-    for handle in handles {
-        handle.join().ok();
-    }
-    let x = outputs.lock().unwrap().clone();
-    x
+    outputs
 }

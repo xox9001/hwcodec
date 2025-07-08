@@ -43,7 +43,7 @@ fn main() {
 
     let (h264s, h265s) = prepare_h26x(best, ctx.clone(), &yuvs);
 
-    let decoders = Decoder::available_decoders(None);
+    let decoders = Decoder::available_decoders();
     log::info!("decoders: {:?}", decoders);
     let best = CodecInfo::prioritized(decoders.clone());
     for info in decoders {
