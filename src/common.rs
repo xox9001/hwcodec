@@ -99,3 +99,27 @@ pub fn get_gpu_signature() -> u64 {
         0
     }
 }
+
+pub fn setup_parent_death_signal() {
+    use std::sync::Once;
+
+    static INIT: Once = Once::new();
+
+    INIT.call_once(|| {
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        {
+            use std::ffi::c_int;
+            extern "C" {
+                fn setup_parent_death_signal() -> c_int;
+            }
+            unsafe {
+                let result = setup_parent_death_signal();
+                if result == 0 {
+                    log::debug!("Successfully set up parent death signal");
+                } else {
+                    log::warn!("Failed to set up parent death signal: {}", result);
+                }
+            }
+        }
+    });
+}
