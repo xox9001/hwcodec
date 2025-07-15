@@ -62,7 +62,7 @@ bool NativeDevice::InitFromLuid(int64_t luid) {
     }
   }
   if (!adapter1_) {
-    LOG_ERROR("Failed to find adapter1_");
+    LOG_ERROR(std::string("Failed to find adapter1_"));
     return false;
   }
   HRB(adapter1_.As(&adapter_));
@@ -83,7 +83,7 @@ bool NativeDevice::InitFromLuid(int64_t luid) {
                         &featureLevel, context_.ReleaseAndGetAddressOf()));
 
   if (featureLevel != D3D_FEATURE_LEVEL_11_0) {
-    LOG_ERROR("Direct3D Feature Level 11 unsupported.");
+    LOG_ERROR(std::string("Direct3D Feature Level 11 unsupported."));
     return false;
   }
   return true;
@@ -106,7 +106,7 @@ bool NativeDevice::SetMultithreadProtected() {
   HRB(context_.As(&hmt));
   if (!hmt->SetMultithreadProtected(TRUE)) {
     if (!hmt->GetMultithreadProtected()) {
-      LOG_ERROR("Failed to SetMultithreadProtected");
+      LOG_ERROR(std::string("Failed to SetMultithreadProtected"));
       return false;
     }
   }
@@ -486,14 +486,14 @@ bool NativeDevice::BgraToNv12(ID3D11Texture2D *bgraTexture,
   bgraTexture->GetDesc(&bgraDesc);
   nv12Texture->GetDesc(&nv12Desc);
   if (bgraDesc.Width < width || bgraDesc.Height < height) {
-    LOG_ERROR("bgraTexture size is smaller than width and height, " +
+    LOG_ERROR(std::string("bgraTexture size is smaller than width and height, ") +
               std::to_string(bgraDesc.Width) + "x" +
               std::to_string(bgraDesc.Height) + " < " + std::to_string(width) +
               "x" + std::to_string(height));
     return false;
   }
   if (nv12Desc.Width < width || nv12Desc.Height < height) {
-    LOG_ERROR("nv12Texture size is smaller than width and height," +
+    LOG_ERROR(std::string("nv12Texture size is smaller than width and height,") +
               std::to_string(nv12Desc.Width) + "x" +
               std::to_string(nv12Desc.Height) + " < " + std::to_string(width) +
               "x" + std::to_string(height));
@@ -749,7 +749,7 @@ void hwcodec_get_d3d11_texture_width_height(ID3D11Texture2D *texture, int *w,
 int32_t add_process_to_new_job(DWORD process_id) {
   HANDLE job_handle = CreateJobObjectW(nullptr, nullptr);
   if (job_handle == nullptr) {
-    LOG_ERROR("Failed to create job object");
+    LOG_ERROR(std::string("Failed to create job object"));
     return -1;
   }
 
@@ -765,7 +765,7 @@ int32_t add_process_to_new_job(DWORD process_id) {
 
   if (result == FALSE) {
     CloseHandle(job_handle);
-    LOG_ERROR("Failed to set job information");
+    LOG_ERROR(std::string("Failed to set job information"));
     return -1;
   }
 
@@ -773,7 +773,7 @@ int32_t add_process_to_new_job(DWORD process_id) {
   HANDLE process_handle = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, FALSE, process_id);
   if (process_handle == nullptr) {
     CloseHandle(job_handle);
-    LOG_ERROR("Failed to open process with ID: " + std::to_string(process_id));
+    LOG_ERROR(std::string("Failed to open process with ID: ") + std::to_string(process_id));
     return -1;
   }
 
@@ -782,7 +782,7 @@ int32_t add_process_to_new_job(DWORD process_id) {
   if (assign_result == FALSE) {
     CloseHandle(process_handle);
     CloseHandle(job_handle);
-    LOG_ERROR("Failed to assign process to job");
+    LOG_ERROR(std::string("Failed to assign process to job"));
     return -1;
   }
 

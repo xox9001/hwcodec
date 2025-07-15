@@ -60,7 +60,7 @@ public:
       name_ = "hevc";
       break;
     default:
-      LOG_ERROR("unsupported data format");
+      LOG_ERROR(std::string("unsupported data format"));
       break;
     }
     // Always use DX11 since it's the only API
@@ -96,12 +96,12 @@ public:
     if (!native_) {
       native_ = std::make_unique<NativeDevice>();
       if (!native_->Init(luid_, (ID3D11Device *)device_, 4)) {
-        LOG_ERROR("Failed to init native device");
+        LOG_ERROR(std::string("Failed to init native device"));
         return -1;
       }
     }
     if (!native_->support_decode(dataFormat_)) {
-      LOG_ERROR("unsupported data format");
+      LOG_ERROR(std::string("unsupported data format"));
       return -1;
     }
     d3d11Device_ = native_->device_.Get();
@@ -111,18 +111,18 @@ public:
     const AVCodec *codec = NULL;
     int ret;
     if (!(codec = avcodec_find_decoder_by_name(name_.c_str()))) {
-      LOG_ERROR("avcodec_find_decoder_by_name " + name_ + " failed");
+      LOG_ERROR(std::string("avcodec_find_decoder_by_name ") + name_ + " failed");
       return -1;
     }
     if (!(c_ = avcodec_alloc_context3(codec))) {
-      LOG_ERROR("Could not allocate video codec context");
+      LOG_ERROR(std::string("Could not allocate video codec context"));
       return -1;
     }
 
     c_->flags |= AV_CODEC_FLAG_LOW_DELAY;
     hw_device_ctx_ = av_hwdevice_ctx_alloc(device_type_);
     if (!hw_device_ctx_) {
-      LOG_ERROR("av_hwdevice_ctx_create failed");
+      LOG_ERROR(std::string("av_hwdevice_ctx_create failed"));
       return -1;
     }
     AVHWDeviceContext *deviceContext =
@@ -136,23 +136,23 @@ public:
     d3d11vaDeviceContext->lock_ctx = this;
     ret = av_hwdevice_ctx_init(hw_device_ctx_);
     if (ret < 0) {
-      LOG_ERROR("av_hwdevice_ctx_init failed, ret = " + av_err2str(ret));
+      LOG_ERROR(std::string("av_hwdevice_ctx_init failed, ret = ") + av_err2str(ret));
       return -1;
     }
     c_->hw_device_ctx = av_buffer_ref(hw_device_ctx_);
 
     if (!(pkt_ = av_packet_alloc())) {
-      LOG_ERROR("av_packet_alloc failed");
+      LOG_ERROR(std::string("av_packet_alloc failed"));
       return -1;
     }
 
     if (!(frame_ = av_frame_alloc())) {
-      LOG_ERROR("av_frame_alloc failed");
+      LOG_ERROR(std::string("av_frame_alloc failed"));
       return -1;
     }
 
     if ((ret = avcodec_open2(c_, codec, NULL)) != 0) {
-      LOG_ERROR("avcodec_open2 failed, ret = " + av_err2str(ret) +
+      LOG_ERROR(std::string("avcodec_open2 failed, ret = ") + av_err2str(ret) +
                 ", name=" + name_);
       return -1;
     }
@@ -165,7 +165,7 @@ public:
     int ret = -1;
 
     if (!data || !length) {
-      LOG_ERROR("illegal decode parameter");
+      LOG_ERROR(std::string("illegal decode parameter"));
       return -1;
     }
     pkt_->data = (uint8_t *)data;
@@ -182,7 +182,7 @@ private:
 
     ret = avcodec_send_packet(c_, pkt_);
     if (ret < 0) {
-      LOG_ERROR("avcodec_send_packet failed, ret = " + av_err2str(ret));
+      LOG_ERROR(std::string("avcodec_send_packet failed, ret = ") + av_err2str(ret));
       return ret;
     }
 
@@ -190,18 +190,18 @@ private:
     while (ret >= 0 && util::elapsed_ms(start) < DECODE_TIMEOUT_MS) {
       if ((ret = avcodec_receive_frame(c_, frame_)) != 0) {
         if (ret != AVERROR(EAGAIN)) {
-          LOG_ERROR("avcodec_receive_frame failed, ret = " + av_err2str(ret));
+          LOG_ERROR(std::string("avcodec_receive_frame failed, ret = ") + av_err2str(ret));
         }
         goto _exit;
       }
       if (frame_->format != AV_PIX_FMT_D3D11) {
-        LOG_ERROR("only AV_PIX_FMT_D3D11 is supported");
+        LOG_ERROR(std::string("only AV_PIX_FMT_D3D11 is supported"));
         goto _exit;
       }
       lockContext(this);
       locked = true;
       if (!convert(frame_, callback, obj)) {
-        LOG_ERROR("Failed to convert");
+        LOG_ERROR(std::string("Failed to convert"));
         goto _exit;
       }
       if (callback)
@@ -220,17 +220,17 @@ private:
 
     ID3D11Texture2D *texture = (ID3D11Texture2D *)frame->data[0];
     if (!texture) {
-      LOG_ERROR("texture is NULL");
+      LOG_ERROR(std::string("texture is NULL"));
       return false;
     }
     D3D11_TEXTURE2D_DESC desc2D;
     texture->GetDesc(&desc2D);
     if (desc2D.Format != DXGI_FORMAT_NV12) {
-      LOG_ERROR("only DXGI_FORMAT_NV12 is supported");
+      LOG_ERROR(std::string("only DXGI_FORMAT_NV12 is supported"));
       return false;
     }
     if (!native_->EnsureTexture(frame->width, frame->height)) {
-      LOG_ERROR("Failed to EnsureTexture");
+      LOG_ERROR(std::string("Failed to EnsureTexture"));
       return false;
     }
     native_->next(); // comment out to remove picture shaking
@@ -239,7 +239,7 @@ private:
     if (!native_->Nv12ToBgra(frame->width, frame->height, texture,
                              native_->GetCurrentTexture(),
                              (int)frame->data[1])) {
-      LOG_ERROR("Failed to Nv12ToBgra");
+      LOG_ERROR(std::string("Failed to Nv12ToBgra"));
       native_->EndQuery();
       return false;
     }
@@ -280,14 +280,14 @@ private:
     }
     if (!native_->Process(texture, native_->GetCurrentTexture(), contentDesc,
                           colorSpace_in, colorSpace_out, (int)frame->data[1])) {
-      LOG_ERROR("Failed to process");
+      LOG_ERROR(std::string("Failed to process"));
       native_->EndQuery();
       return false;
     }
     native_->context_->Flush();
     native_->EndQuery();
     if (!native_->Query()) {
-      LOG_ERROR("Failed to query");
+      LOG_ERROR(std::string("Failed to query"));
       return false;
     }
 #endif
@@ -310,7 +310,7 @@ extern "C" int ffmpeg_vram_destroy_decoder(FFmpegVRamDecoder *decoder) {
     decoder = NULL;
     return 0;
   } catch (const std::exception &e) {
-    LOG_ERROR("ffmpeg_ram_free_decoder exception:" + e.what());
+    LOG_ERROR(std::string("ffmpeg_ram_free_decoder exception:") + e.what());
   }
   return -1;
 }
@@ -327,7 +327,7 @@ extern "C" FFmpegVRamDecoder *ffmpeg_vram_new_decoder(void *device,
       }
     }
   } catch (std::exception &e) {
-    LOG_ERROR("new decoder exception:" + e.what());
+    LOG_ERROR(std::string("new decoder exception:") + e.what());
   }
   if (decoder) {
     decoder->destroy();
@@ -348,7 +348,7 @@ extern "C" int ffmpeg_vram_decode(FFmpegVRamDecoder *decoder,
       return ret == 0 ? HWCODEC_SUCCESS : HWCODEC_ERR_COMMON;
     }
   } catch (const std::exception &e) {
-    LOG_ERROR("ffmpeg_ram_decode exception:" + e.what());
+    LOG_ERROR(std::string("ffmpeg_ram_decode exception:") + e.what());
   }
   return HWCODEC_ERR_COMMON;
 }

@@ -27,7 +27,7 @@ namespace {
 
 #define AMF_CHECK_RETURN(res, msg)                                             \
   if (res != AMF_OK) {                                                         \
-    LOG_ERROR(msg + ", result code: " + std::to_string(int(res)));             \
+    LOG_ERROR(std::string(msg) + ", result code: " + std::to_string(int(res)));             \
     return res;                                                                \
   }
 
@@ -120,7 +120,7 @@ public:
       }
       break;
     default:
-      LOG_ERROR("Unsupported memory type");
+      LOG_ERROR(std::string("Unsupported memory type"));
       return AMF_NOT_IMPLEMENTED;
       break;
     }
@@ -211,7 +211,7 @@ public:
       AMF_CHECK_RETURN(res, "InitDX11 failed");
       break;
     default:
-      LOG_ERROR("unsupported amf memory type");
+      LOG_ERROR(std::string("unsupported amf memory type"));
       return AMF_FAIL;
     }
 
@@ -445,7 +445,7 @@ bool convert_codec(DataFormat lhs, amf_wstring &rhs) {
     rhs = AMFVideoEncoder_HEVC;
     break;
   default:
-    LOG_ERROR("unsupported codec: " + std::to_string((int)lhs));
+    LOG_ERROR(std::string("unsupported codec: ") + std::to_string((int)lhs));
     return false;
   }
   return true;
@@ -464,7 +464,7 @@ int amf_destroy_encoder(void *encoder) {
     enc = NULL;
     return 0;
   } catch (const std::exception &e) {
-    LOG_ERROR("destroy failed: " + e.what());
+          LOG_ERROR(std::string("destroy failed: ") + e.what());
   }
   return -1;
 }
@@ -490,7 +490,7 @@ void *amf_new_encoder(void *handle, int64_t luid,
       }
     }
   } catch (const std::exception &e) {
-    LOG_ERROR("new failed: " + e.what());
+          LOG_ERROR(std::string("new failed: ") + e.what());
   }
   if (enc) {
     enc->destroy();
@@ -506,7 +506,7 @@ int amf_encode(void *encoder, void *tex, EncodeCallback callback, void *obj,
     AMFEncoder *enc = (AMFEncoder *)encoder;
     return -enc->encode(tex, callback, obj, ms);
   } catch (const std::exception &e) {
-    LOG_ERROR("encode failed: " + e.what());
+          LOG_ERROR(std::string("encode failed: ") + e.what());
   }
   return -1;
 }
@@ -569,7 +569,7 @@ int amf_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxDescNum, 
     return 0;
 
   } catch (const std::exception &e) {
-    LOG_ERROR("test " + std::to_string(kbs) + "failed: " + e.what());
+    LOG_ERROR(std::string("test ") + std::to_string(kbs) + " failed: " + e.what());
   }
   return -1;
 }
@@ -590,7 +590,7 @@ int amf_set_bitrate(void *encoder, int32_t kbs) {
     }
     return res == AMF_OK ? 0 : -1;
   } catch (const std::exception &e) {
-    LOG_ERROR("set bitrate to " + std::to_string(kbs) +
+    LOG_ERROR(std::string("set bitrate to ") + std::to_string(kbs) +
               "k failed: " + e.what());
   }
   return -1;
@@ -612,7 +612,7 @@ int amf_set_framerate(void *encoder, int32_t framerate) {
     }
     return res == AMF_OK ? 0 : -1;
   } catch (const std::exception &e) {
-    LOG_ERROR("set framerate to " + std::to_string(framerate) +
+    LOG_ERROR(std::string("set framerate to ") + std::to_string(framerate) +
               " failed: " + e.what());
   }
   return -1;

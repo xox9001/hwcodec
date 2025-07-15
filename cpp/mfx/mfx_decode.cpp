@@ -18,7 +18,7 @@
     mfxStatus __sts = (X);                                                     \
     if (__sts != MFX_ERR_NONE) {                                               \
       MSDK_PRINT_RET_MSG(__sts, MSG);                                          \
-      LOG_ERROR(MSG + "failed, sts=" + std::to_string((int)__sts));            \
+      LOG_ERROR(std::string(MSG) + "failed, sts=" + std::to_string((int)__sts));            \
       return __sts;                                                            \
     }                                                                          \
   }
@@ -68,7 +68,7 @@ public:
     mfxStatus sts = MFX_ERR_NONE;
     native_ = std::make_unique<NativeDevice>();
     if (!native_->Init(luid_, (ID3D11Device *)device_, 4)) {
-      LOG_ERROR("Failed to initialize native device");
+      LOG_ERROR(std::string("Failed to initialize native device"));
       return MFX_ERR_DEVICE_FAILED;
     }
     sts = InitializeMFX();
@@ -77,13 +77,13 @@ public:
     // Create Media SDK decoder
     mfxDEC_ = new MFXVideoDECODE(session_);
     if (!mfxDEC_) {
-      LOG_ERROR("Failed to create MFXVideoDECODE");
+      LOG_ERROR(std::string("Failed to create MFXVideoDECODE"));
       return MFX_ERR_NOT_INITIALIZED;
     }
 
     memset(&mfxVideoParams_, 0, sizeof(mfxVideoParams_));
     if (!convert_codec(codecID_, mfxVideoParams_.mfx.CodecId)) {
-      LOG_ERROR("Unsupported codec");
+      LOG_ERROR(std::string("Unsupported codec"));
       return MFX_ERR_UNSUPPORTED;
     }
 
@@ -122,7 +122,7 @@ public:
     if (!initialized_) {
       sts = initializeDecode(&mfxBS, false);
       if (sts != MFX_ERR_NONE) {
-        LOG_ERROR("initializeDecode failed, sts=" + std::to_string((int)sts));
+        LOG_ERROR(std::string("initializeDecode failed, sts=") + std::to_string((int)sts));
         return -1;
       }
       initialized_ = true;
@@ -132,14 +132,14 @@ public:
     auto start = util::now();
     do {
       if (util::elapsed_ms(start) > DECODE_TIMEOUT_MS) {
-        LOG_ERROR("decode timeout");
+        LOG_ERROR(std::string("decode timeout"));
         break;
       }
       int nIndex =
           GetFreeSurfaceIndex(pmfxSurfaces_.data(),
                               pmfxSurfaces_.size()); // Find free frame surface
       if (nIndex >= pmfxSurfaces_.size()) {
-        LOG_ERROR("GetFreeSurfaceIndex failed, nIndex=" +
+        LOG_ERROR(std::string("GetFreeSurfaceIndex failed, nIndex=") +
                   std::to_string(nIndex));
         break;
       }
@@ -147,20 +147,20 @@ public:
                                       &pmfxOutSurface, &syncp);
       if (MFX_ERR_NONE == sts) {
         if (!syncp) {
-          LOG_ERROR("should not happen, syncp is NULL while error is none");
+          LOG_ERROR(std::string("should not happen, syncp is NULL while error is none"));
           break;
         }
         sts = session_.SyncOperation(syncp, 1000);
         if (MFX_ERR_NONE != sts) {
-          LOG_ERROR("SyncOperation failed, sts=" + std::to_string((int)sts));
+          LOG_ERROR(std::string("SyncOperation failed, sts=") + std::to_string((int)sts));
           break;
         }
         if (!pmfxOutSurface) {
-          LOG_ERROR("pmfxOutSurface is null");
+          LOG_ERROR(std::string("pmfxOutSurface is null"));
           break;
         }
         if (!convert(pmfxOutSurface)) {
-          LOG_ERROR("Failed to convert");
+          LOG_ERROR(std::string("Failed to convert"));
           break;
         }
         if (callback)
@@ -168,34 +168,34 @@ public:
         decoded = true;
         break;
       } else if (MFX_WRN_DEVICE_BUSY == sts) {
-        LOG_INFO("Device busy");
+        LOG_INFO(std::string("Device busy"));
         Sleep(1);
         continue;
       } else if (MFX_ERR_INCOMPATIBLE_VIDEO_PARAM == sts) {
         // https://github.com/Intel-Media-SDK/MediaSDK/blob/master/doc/mediasdk-man.md#multiple-sequence-headers
-        LOG_INFO("Incompatible video param, reset decoder");
+        LOG_INFO(std::string("Incompatible video param, reset decoder"));
         // https://github.com/FFmpeg/FFmpeg/blob/f84412d6f4e9c1f1d1a2491f9337d7e789c688ba/libavcodec/qsvdec.c#L736
         setBitStream(&mfxBS, data, len);
         sts = initializeDecode(&mfxBS, true);
         if (sts != MFX_ERR_NONE) {
-          LOG_ERROR("initializeDecode failed, sts=" + std::to_string((int)sts));
+          LOG_ERROR(std::string("initializeDecode failed, sts=") + std::to_string((int)sts));
           break;
         }
         Sleep(1);
         continue;
       } else if (MFX_WRN_VIDEO_PARAM_CHANGED == sts) {
-        LOG_TRACE("new sequence header");
+        LOG_TRACE(std::string("new sequence header"));
         sts = mfxDEC_->GetVideoParam(&mfxVideoParams_);
         if (sts != MFX_ERR_NONE) {
-          LOG_ERROR("GetVideoParam failed, sts=" + std::to_string((int)sts));
+          LOG_ERROR(std::string("GetVideoParam failed, sts=") + std::to_string((int)sts));
         }
         continue;
       } else if (MFX_ERR_MORE_SURFACE == sts) {
-        LOG_INFO("More surface");
+        LOG_INFO(std::string("More surface"));
         Sleep(1);
         continue;
       } else {
-        LOG_ERROR("DecodeFrameAsync failed, sts=" + std::to_string(sts));
+        LOG_ERROR(std::string("DecodeFrameAsync failed, sts=") + std::to_string(sts));
         break;
       }
       // double confirm, check continue
@@ -204,7 +204,7 @@ public:
              MFX_WRN_VIDEO_PARAM_CHANGED == sts || MFX_ERR_MORE_SURFACE == sts);
 
     if (!decoded) {
-      LOG_ERROR("decode failed, sts=" + std::to_string(sts));
+      LOG_ERROR(std::string("decode failed, sts=") + std::to_string(sts));
     }
 
     return decoded ? 0 : -1;
@@ -318,7 +318,7 @@ private:
     sts = d3d11FrameAllocator_.GetFrameHDL(pmfxOutSurface->Data.MemId,
                                            (mfxHDL *)&pair);
     if (MFX_ERR_NONE != sts) {
-      LOG_ERROR("Failed to GetFrameHDL");
+      LOG_ERROR(std::string("Failed to GetFrameHDL"));
       return false;
     }
     ID3D11Texture2D *texture = (ID3D11Texture2D *)pair.first;
@@ -326,7 +326,7 @@ private:
     texture->GetDesc(&desc2D);
     if (!native_->EnsureTexture(pmfxOutSurface->Info.CropW,
                                 pmfxOutSurface->Info.CropH)) {
-      LOG_ERROR("Failed to EnsureTexture");
+      LOG_ERROR(std::string("Failed to EnsureTexture"));
       return false;
     }
     native_->next(); // comment out to remove picture shaking
@@ -335,7 +335,7 @@ private:
     if (!native_->Nv12ToBgra(pmfxOutSurface->Info.CropW,
                              pmfxOutSurface->Info.CropH, texture,
                              native_->GetCurrentTexture(), 0)) {
-      LOG_ERROR("Failed to Nv12ToBgra");
+      LOG_ERROR(std::string("Failed to Nv12ToBgra"));
       native_->EndQuery();
       return false;
     }
@@ -375,7 +375,7 @@ private:
     }
     if (!native_->Process(texture, native_->GetCurrentTexture(), contentDesc,
                           colorSpace_in, colorSpace_out, 0)) {
-      LOG_ERROR("Failed to process");
+      LOG_ERROR(std::string("Failed to process"));
       native_->EndQuery();
       return false;
     }
@@ -383,7 +383,7 @@ private:
     native_->context_->Flush();
     native_->EndQuery();
     if (!native_->Query()) {
-      LOG_ERROR("Failed to query");
+      LOG_ERROR(std::string("Failed to query"));
       return false;
     }
 #endif
@@ -415,7 +415,7 @@ void *mfx_new_decoder(void *device, int64_t luid, DataFormat codecID) {
       }
     }
   } catch (const std::exception &e) {
-    LOG_ERROR("new failed: " + e.what());
+    LOG_ERROR(std::string("new failed: ") + e.what());
   }
 
   if (p) {
@@ -434,7 +434,7 @@ int mfx_decode(void *decoder, uint8_t *data, int len, DecodeCallback callback,
       return HWCODEC_SUCCESS;
     }
   } catch (const std::exception &e) {
-    LOG_ERROR("decode failed: " + e.what());
+    LOG_ERROR(std::string("decode failed: ") + e.what());
   }
   return HWCODEC_ERR_COMMON;
 }

@@ -21,7 +21,7 @@
 
 #define AMF_CHECK_RETURN(res, msg)                                             \
   if (res != AMF_OK) {                                                         \
-    LOG_ERROR(msg + ", result code: " + std::to_string(int(res)));             \
+    LOG_ERROR(std::string(msg) + ", result code: " + std::to_string(int(res)));             \
     return res;                                                                \
   }
 
@@ -74,7 +74,7 @@ public:
     res = AMFDecoder_->SubmitInput(iDataWrapBuffer);
     if (res == AMF_RESOLUTION_CHANGED) {
       iDataWrapBuffer = NULL;
-      LOG_INFO("resolution changed");
+      LOG_INFO(std::string("resolution changed"));
       res = AMFDecoder_->Drain();
       AMF_CHECK_RETURN(res, "Drain failed");
       res = AMFDecoder_->Terminate();
@@ -188,7 +188,7 @@ public:
     case amf::AMF_MEMORY_DX11:
       nativeDevice_ = std::make_unique<NativeDevice>();
       if (!nativeDevice_->Init(luid_, (ID3D11Device *)device_, 4)) {
-        LOG_ERROR("Init NativeDevice failed");
+        LOG_ERROR(std::string("Init NativeDevice failed"));
         return AMF_FAIL;
       }
       res = AMFContext_->InitDX11(
@@ -196,7 +196,7 @@ public:
       AMF_CHECK_RETURN(res, "InitDX11 failed");
       break;
     default:
-      LOG_ERROR("unsupported memory type: " +
+      LOG_ERROR(std::string("unsupported memory type: ") +
                 std::to_string((int)AMFMemoryType_));
       return AMF_FAIL;
     }
@@ -263,7 +263,7 @@ private:
     int height = surface->GetPlaneAt(0)->GetHeight();
     if (AMFConverter_ != NULL) {
       if (width != last_width_ || height != last_height_) {
-        LOG_INFO("Convert size changed, (" + std::to_string(last_width_) + "x" +
+        LOG_INFO(std::string("Convert size changed, (") + std::to_string(last_width_) + "x" +
                  std::to_string(last_height_) + ") -> (" +
                  std::to_string(width) + "x" + std::to_string(width) + ")");
         AMFConverter_->Terminate();
@@ -338,7 +338,7 @@ bool convert_codec(DataFormat lhs, amf_wstring &rhs) {
     rhs = AMFVideoDecoderHW_H265_HEVC;
     break;
   default:
-    LOG_ERROR("unsupported codec: " + std::to_string(lhs));
+    LOG_ERROR(std::string("unsupported codec: ") + std::to_string(lhs));
     return false;
   }
   return true;
@@ -360,7 +360,7 @@ int amf_destroy_decoder(void *decoder) {
       return 0;
     }
   } catch (const std::exception &e) {
-    LOG_ERROR("destroy failed: " + e.what());
+          LOG_ERROR(std::string("destroy failed: ") + e.what());
   }
   return -1;
 }
@@ -385,7 +385,7 @@ void *amf_new_decoder(void *device, int64_t luid,
       }
     }
   } catch (const std::exception &e) {
-    LOG_ERROR("new failed: " + e.what());
+          LOG_ERROR(std::string("new failed: ") + e.what());
   }
   if (dec) {
     dec->destroy();
@@ -403,7 +403,7 @@ int amf_decode(void *decoder, uint8_t *data, int32_t length,
       return HWCODEC_SUCCESS;
     }
   } catch (const std::exception &e) {
-    LOG_ERROR("decode failed: " + e.what());
+          LOG_ERROR(std::string("decode failed: ") + e.what());
   }
   return HWCODEC_ERR_COMMON;
 }
@@ -453,7 +453,7 @@ int amf_test_decode(int64_t *outLuids, int32_t *outVendors, int32_t maxDescNum,
     *outDescNum = count;
     return 0;
   } catch (const std::exception &e) {
-    LOG_ERROR("test failed: " + e.what());
+    LOG_ERROR(std::string("test failed: ") + e.what());
   }
   return -1;
 }

@@ -37,11 +37,11 @@ namespace {
 
 void load_driver(CudaFunctions **pp_cuda_dl, NvencFunctions **pp_nvenc_dl) {
   if (cuda_load_functions(pp_cuda_dl, NULL) < 0) {
-    LOG_TRACE("cuda_load_functions failed");
+    LOG_TRACE(std::string("cuda_load_functions failed"));
     NVENC_THROW_ERROR("cuda_load_functions failed", NV_ENC_ERR_GENERIC);
   }
   if (nvenc_load_functions(pp_nvenc_dl, NULL) < 0) {
-    LOG_TRACE("nvenc_load_functions failed");
+    LOG_TRACE(std::string("nvenc_load_functions failed"));
     NVENC_THROW_ERROR("nvenc_load_functions failed", NV_ENC_ERR_GENERIC);
   }
 }
@@ -103,12 +103,12 @@ public:
       guidCodec = NV_ENC_CODEC_HEVC_GUID;
       break;
     default:
-      LOG_ERROR("dataFormat not support, dataFormat: " +
+      LOG_ERROR(std::string("dataFormat not support, dataFormat: ") +
                 std::to_string(dataFormat_));
       return false;
     }
     if (!succ(cuda_dl_->cuInit(0))) {
-      LOG_TRACE("cuInit failed");
+      LOG_TRACE(std::string("cuInit failed"));
       return false;
     }
 
@@ -118,14 +118,14 @@ public:
       return false;
 #else
     if (!native_->Init(luid_, (ID3D11Device *)handle_)) {
-      LOG_ERROR("d3d device init failed");
+      LOG_ERROR(std::string("d3d device init failed"));
       return false;
     }
 #endif
 
     CUdevice cuDevice = 0;
     if (!succ(cuda_dl_->cuD3D11GetDevice(&cuDevice, native_->adapter_.Get()))) {
-      LOG_ERROR("Failed to get cuDevice");
+      LOG_ERROR(std::string("Failed to get cuDevice"));
       return false;
     }
 
@@ -316,7 +316,7 @@ int nv_encode_driver_support() {
     free_driver(&cuda_dl, &nvenc_dl);
     return 0;
   } catch (const std::exception &e) {
-    LOG_TRACE("driver not support, " + e.what());
+    LOG_TRACE(std::string("driver not support, ") + e.what());
   }
   return -1;
 }
@@ -331,7 +331,7 @@ int nv_destroy_encoder(void *encoder) {
     }
     return 0;
   } catch (const std::exception &e) {
-    LOG_ERROR("destroy failed: " + e.what());
+    LOG_ERROR(std::string("destroy failed: ") + e.what());
   }
   return -1;
 }
@@ -348,7 +348,7 @@ void *nv_new_encoder(void *handle, int64_t luid, DataFormat dataFormat,
     }
     return e;
   } catch (const std::exception &ex) {
-    LOG_ERROR("new failed: " + ex.what());
+    LOG_ERROR(std::string("new failed: ") + ex.what());
     goto _exit;
   }
 
@@ -367,7 +367,7 @@ int nv_encode(void *encoder, void *texture, EncodeCallback callback, void *obj,
     NvencEncoder *e = (NvencEncoder *)encoder;
     return e->encode(texture, callback, obj, ms);
   } catch (const std::exception &e) {
-    LOG_ERROR("encode failed: " + e.what());
+    LOG_ERROR(std::string("encode failed: ") + e.what());
   }
   return -1;
 }
@@ -442,7 +442,7 @@ int nv_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxDescNum, i
     return 0;
 
   } catch (const std::exception &e) {
-    LOG_ERROR("test failed: " + e.what());
+    LOG_ERROR(std::string("test failed: ") + e.what());
   }
   return -1;
 }
@@ -454,7 +454,7 @@ int nv_set_bitrate(void *e, int32_t kbs) {
         kbs * 1000;
     RECONFIGURE_TAIL
   } catch (const std::exception &e) {
-    LOG_ERROR("set bitrate to " + std::to_string(kbs) +
+    LOG_ERROR(std::string("set bitrate to ") + std::to_string(kbs) +
               "k failed: " + e.what());
   }
   return -1;
@@ -467,7 +467,7 @@ int nv_set_framerate(void *e, int32_t framerate) {
     params.reInitEncodeParams.frameRateDen = 1;
     RECONFIGURE_TAIL
   } catch (const std::exception &e) {
-    LOG_ERROR("set framerate failed: " + e.what());
+    LOG_ERROR(std::string("set framerate failed: ") + e.what());
   }
   return -1;
 }
