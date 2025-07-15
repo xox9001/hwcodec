@@ -400,20 +400,10 @@ int nv_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxDescNum, i
     int count = 0;
     for (auto &adapter : adapters.adapters_) {
       int64_t currentLuid = LUID(adapter.get()->desc1_);
-      
-      // Check if this luid+format combination should be excluded
-      bool shouldExclude = false;
-      for (int32_t i = 0; i < excludeCount; i++) {
-        if (excludedLuids[i] == currentLuid && excludeFormats[i] == (int32_t)dataFormat) {
-          shouldExclude = true;
-          break;
-        }
-      }
-      
-      if (shouldExclude) {
+      if (util::skip_test(excludedLuids, excludeFormats, excludeCount, currentLuid, dataFormat)) {
         continue;
       }
-      
+
       NvencEncoder *e = (NvencEncoder *)nv_new_encoder(
           (void *)adapter.get()->device_.Get(), currentLuid,
           dataFormat, width, height, kbs, framerate, gop);

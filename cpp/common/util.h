@@ -37,6 +37,15 @@ namespace util {
     inline int64_t elapsed_ms(std::chrono::steady_clock::time_point start) {
         return std::chrono::duration_cast<std::chrono::milliseconds>(now() - start).count();
     }
+
+    inline bool skip_test(const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount, int64_t currentLuid, int32_t dataFormat) {
+      for (int32_t i = 0; i < excludeCount; i++) {
+        if (excludedLuids[i] == currentLuid && excludeFormats[i] == dataFormat) {
+          return true;
+        }
+      }
+      return false;
+    }
 }
 
 

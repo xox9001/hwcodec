@@ -516,17 +516,7 @@ int ffmpeg_vram_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxD
         continue;
       for (auto &adapter : adapters.adapters_) {
         int64_t currentLuid = LUID(adapter.get()->desc1_);
-        
-        // Check if this luid+format combination should be excluded
-        bool shouldExclude = false;
-        for (int32_t i = 0; i < excludeCount; i++) {
-          if (excludedLuids[i] == currentLuid && excludeFormats[i] == (int32_t)dataFormat) {
-            shouldExclude = true;
-            break;
-          }
-        }
-        
-        if (shouldExclude) {
+        if (util::skip_test(excludedLuids, excludeFormats, excludeCount, currentLuid, dataFormat)) {
           continue;
         }
         
