@@ -34,7 +34,7 @@ static int calculate_offset_length(int pix_fmt, int height, const int *linesize,
     *length = offset[0] + linesize[1] * height / 2;
     break;
   default:
-    LOG_ERROR("unsupported pixfmt" + std::to_string(pix_fmt));
+    LOG_ERROR(std::string("unsupported pixfmt") + std::to_string(pix_fmt));
     return -1;
   }
 
@@ -51,7 +51,7 @@ extern "C" int ffmpeg_ram_get_linesize_offset_length(int pix_fmt, int width,
   int ret = -1;
 
   if (!(frame = av_frame_alloc())) {
-    LOG_ERROR("Alloc frame failed");
+    LOG_ERROR(std::string("Alloc frame failed"));
     goto _exit;
   }
 
@@ -60,7 +60,7 @@ extern "C" int ffmpeg_ram_get_linesize_offset_length(int pix_fmt, int width,
   frame->height = height;
 
   if ((ret = av_frame_get_buffer(frame, align)) < 0) {
-    LOG_ERROR("av_frame_get_buffer, ret = " + av_err2str(ret));
+    LOG_ERROR(std::string("av_frame_get_buffer, ret = ") + av_err2str(ret));
     goto _exit;
   }
   if (linesize) {
@@ -160,12 +160,12 @@ public:
     int ret;
 
     if (!(codec = avcodec_find_encoder_by_name(name_.c_str()))) {
-      LOG_ERROR("Codec " + name_ + " not found");
+      LOG_ERROR(std::string("Codec ") + name_ + " not found");
       return false;
     }
 
     if (!(c_ = avcodec_alloc_context3(codec))) {
-      LOG_ERROR("Could not allocate video codec context");
+      LOG_ERROR(std::string("Could not allocate video codec context"));
       return false;
     }
 
@@ -184,30 +184,30 @@ public:
                                    device.length() == 0 ? NULL : device.c_str(),
                                    NULL, 0);
       if (ret < 0) {
-        LOG_ERROR("av_hwdevice_ctx_create failed");
+        LOG_ERROR(std::string("av_hwdevice_ctx_create failed"));
         return false;
       }
       if (set_hwframe_ctx() != 0) {
-        LOG_ERROR("set_hwframe_ctx failed");
+        LOG_ERROR(std::string("set_hwframe_ctx failed"));
         return false;
       }
       hw_frame_ = av_frame_alloc();
       if (!hw_frame_) {
-        LOG_ERROR("av_frame_alloc failed");
+        LOG_ERROR(std::string("av_frame_alloc failed"));
         return false;
       }
       if ((ret = av_hwframe_get_buffer(c_->hw_frames_ctx, hw_frame_, 0)) < 0) {
-        LOG_ERROR("av_hwframe_get_buffer failed, ret = " + av_err2str(ret));
+        LOG_ERROR(std::string("av_hwframe_get_buffer failed, ret = ") + av_err2str(ret));
         return false;
       }
       if (!hw_frame_->hw_frames_ctx) {
-        LOG_ERROR("hw_frame_->hw_frames_ctx is NULL");
+        LOG_ERROR(std::string("hw_frame_->hw_frames_ctx is NULL"));
         return false;
       }
     }
 
     if (!(frame_ = av_frame_alloc())) {
-      LOG_ERROR("Could not allocate video frame");
+      LOG_ERROR(std::string("Could not allocate video frame"));
       return false;
     }
     frame_->format = pixfmt_;
@@ -215,12 +215,12 @@ public:
     frame_->height = height_;
 
     if ((ret = av_frame_get_buffer(frame_, align_)) < 0) {
-      LOG_ERROR("av_frame_get_buffer failed, ret = " + av_err2str(ret));
+      LOG_ERROR(std::string("av_frame_get_buffer failed, ret = ") + av_err2str(ret));
       return false;
     }
 
     if (!(pkt_ = av_packet_alloc())) {
-      LOG_ERROR("Could not allocate video packet");
+      LOG_ERROR(std::string("Could not allocate video packet"));
       return false;
     }
 
@@ -232,7 +232,7 @@ public:
     c_->sw_pix_fmt = (AVPixelFormat)pixfmt_;
     util_encode::set_av_codec_ctx(c_, name_, kbs_, gop_, fps_);
     if (!util_encode::set_lantency_free(c_->priv_data, name_)) {
-      LOG_ERROR("set_lantency_free failed, name: " + name_);
+      LOG_ERROR(std::string("set_lantency_free failed, name: ") + name_);
       return false;
     }
     // util_encode::set_quality(c_->priv_data, name_, quality_);
@@ -242,16 +242,16 @@ public:
     util_encode::set_others(c_->priv_data, name_);
     if (name_.find("mediacodec") != std::string::npos) {
       if (mc_name_.length() > 0) {
-        LOG_INFO("mediacodec codec_name: " + mc_name_);
+        LOG_INFO(std::string("mediacodec codec_name: ") + mc_name_);
         if ((ret = av_opt_set(c_->priv_data, "codec_name", mc_name_.c_str(),
                               0)) < 0) {
-          LOG_ERROR("mediacodec codec_name failed, ret = " + av_err2str(ret));
+          LOG_ERROR(std::string("mediacodec codec_name failed, ret = ") + av_err2str(ret));
         }
       }
     }
 
     if ((ret = avcodec_open2(c_, codec, NULL)) < 0) {
-      LOG_ERROR("avcodec_open2 failed, ret = " + av_err2str(ret) +
+      LOG_ERROR(std::string("avcodec_open2 failed, ret = ") + av_err2str(ret) +
                 ", name: " + name_);
       return false;
     }
@@ -271,7 +271,7 @@ public:
     int ret;
 
     if ((ret = av_frame_make_writable(frame_)) != 0) {
-      LOG_ERROR("av_frame_make_writable failed, ret = " + av_err2str(ret));
+      LOG_ERROR(std::string("av_frame_make_writable failed, ret = ") + av_err2str(ret));
       return ret;
     }
     if ((ret = fill_frame(frame_, (uint8_t *)data, length, offset_)) != 0)
@@ -279,7 +279,7 @@ public:
     AVFrame *tmp_frame;
     if (hw_device_type_ != AV_HWDEVICE_TYPE_NONE) {
       if ((ret = av_hwframe_transfer_data(hw_frame_, frame_, 0)) < 0) {
-        LOG_ERROR("av_hwframe_transfer_data failed, ret = " + av_err2str(ret));
+        LOG_ERROR(std::string("av_hwframe_transfer_data failed, ret = ") + av_err2str(ret));
         return ret;
       }
       tmp_frame = hw_frame_;
@@ -314,7 +314,7 @@ private:
     int err = 0;
 
     if (!(hw_frames_ref = av_hwframe_ctx_alloc(hw_device_ctx_))) {
-      LOG_ERROR("av_hwframe_ctx_alloc failed");
+      LOG_ERROR(std::string("av_hwframe_ctx_alloc failed"));
       return -1;
     }
     frames_ctx = (AVHWFramesContext *)(hw_frames_ref->data);
@@ -329,7 +329,7 @@ private:
     }
     c_->hw_frames_ctx = av_buffer_ref(hw_frames_ref);
     if (!c_->hw_frames_ctx) {
-      LOG_ERROR("av_buffer_ref failed");
+      LOG_ERROR(std::string("av_buffer_ref failed"));
       err = -1;
     }
     av_buffer_unref(&hw_frames_ref);
@@ -341,7 +341,7 @@ private:
     bool encoded = false;
     frame->pts = ms;
     if ((ret = avcodec_send_frame(c_, frame)) < 0) {
-      LOG_ERROR("avcodec_send_frame failed, ret = " + av_err2str(ret));
+      LOG_ERROR(std::string("avcodec_send_frame failed, ret = ") + av_err2str(ret));
       return ret;
     }
 
@@ -349,12 +349,12 @@ private:
     while (ret >= 0 && util::elapsed_ms(start) < DECODE_TIMEOUT_MS) {
       if ((ret = avcodec_receive_packet(c_, pkt_)) < 0) {
         if (ret != AVERROR(EAGAIN)) {
-          LOG_ERROR("avcodec_receive_packet failed, ret = " + av_err2str(ret));
+          LOG_ERROR(std::string("avcodec_receive_packet failed, ret = ") + av_err2str(ret));
         }
         goto _exit;
       }
       if (!pkt_->data || !pkt_->size) {
-        LOG_ERROR("avcodec_receive_packet failed, pkt size is 0");
+        LOG_ERROR(std::string("avcodec_receive_packet failed, pkt size is 0"));
         goto _exit;
       }
       encoded = true;
@@ -372,7 +372,7 @@ private:
     case AV_PIX_FMT_NV12:
       if (data_length <
           frame->height * (frame->linesize[0] + frame->linesize[1] / 2)) {
-        LOG_ERROR("fill_frame: NV12 data length error. data_length:" +
+        LOG_ERROR(std::string("fill_frame: NV12 data length error. data_length:") +
                   std::to_string(data_length) +
                   ", linesize[0]:" + std::to_string(frame->linesize[0]) +
                   ", linesize[1]:" + std::to_string(frame->linesize[1]));
@@ -385,7 +385,7 @@ private:
       if (data_length <
           frame->height * (frame->linesize[0] + frame->linesize[1] / 2 +
                            frame->linesize[2] / 2)) {
-        LOG_ERROR("fill_frame: 420P data length error. data_length:" +
+        LOG_ERROR(std::string("fill_frame: 420P data length error. data_length:") +
                   std::to_string(data_length) +
                   ", linesize[0]:" + std::to_string(frame->linesize[0]) +
                   ", linesize[1]:" + std::to_string(frame->linesize[1]) +
@@ -397,7 +397,7 @@ private:
       frame->data[2] = data + offset[1];
       break;
     default:
-      LOG_ERROR("fill_frame: unsupported format, " +
+      LOG_ERROR(std::string("fill_frame: unsupported format, ") +
                 std::to_string(frame->format));
       return -1;
     }
@@ -424,7 +424,7 @@ ffmpeg_ram_new_encoder(const char *name, const char *mc_name, int width,
       }
     }
   } catch (const std::exception &e) {
-    LOG_ERROR("new FFmpegRamEncoder failed, " + std::string(e.what()));
+    LOG_ERROR(std::string("new FFmpegRamEncoder failed, ") + std::string(e.what()));
   }
   if (encoder) {
     encoder->free_encoder();
@@ -439,7 +439,7 @@ extern "C" int ffmpeg_ram_encode(FFmpegRamEncoder *encoder, const uint8_t *data,
   try {
     return encoder->encode(data, length, obj, ms);
   } catch (const std::exception &e) {
-    LOG_ERROR("ffmpeg_ram_encode failed, " + std::string(e.what()));
+    LOG_ERROR(std::string("ffmpeg_ram_encode failed, ") + std::string(e.what()));
   }
   return -1;
 }
@@ -452,7 +452,7 @@ extern "C" void ffmpeg_ram_free_encoder(FFmpegRamEncoder *encoder) {
     delete encoder;
     encoder = NULL;
   } catch (const std::exception &e) {
-    LOG_ERROR("free encoder failed, " + std::string(e.what()));
+    LOG_ERROR(std::string("free encoder failed, ") + std::string(e.what()));
   }
 }
 
@@ -460,7 +460,7 @@ extern "C" int ffmpeg_ram_set_bitrate(FFmpegRamEncoder *encoder, int kbs) {
   try {
     return encoder->set_bitrate(kbs);
   } catch (const std::exception &e) {
-    LOG_ERROR("ffmpeg_ram_set_bitrate failed, " + std::string(e.what()));
+    LOG_ERROR(std::string("ffmpeg_ram_set_bitrate failed, ") + std::string(e.what()));
   }
   return -1;
 }

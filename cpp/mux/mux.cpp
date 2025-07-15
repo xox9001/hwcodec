@@ -49,14 +49,14 @@ public:
     int ret;
 
     if ((ret = avformat_alloc_output_context2(&oc, NULL, NULL, filename)) < 0) {
-      LOG_ERROR("avformat_alloc_output_context2 failed, ret = " +
-                std::to_string(ret));
+          LOG_ERROR(std::string("avformat_alloc_output_context2 failed, ret = ") +
+              std::to_string(ret));
       return false;
     }
 
     ost->st = avformat_new_stream(oc, NULL);
     if (!ost->st) {
-      LOG_ERROR("avformat_new_stream failed");
+      LOG_ERROR(std::string("avformat_new_stream failed"));
       return false;
     }
     ost->st->id = oc->nb_streams - 1;
@@ -68,20 +68,20 @@ public:
     if (!(oc->oformat->flags & AVFMT_NOFILE)) {
       ret = avio_open(&oc->pb, filename, AVIO_FLAG_WRITE);
       if (ret < 0) {
-        LOG_ERROR("avio_open failed, ret = " + std::to_string(ret));
+        LOG_ERROR(std::string("avio_open failed, ret = ") + std::to_string(ret));
         return false;
       }
     }
 
     ost->tmp_pkt = av_packet_alloc();
     if (!ost->tmp_pkt) {
-      LOG_ERROR("av_packet_alloc failed");
+      LOG_ERROR(std::string("av_packet_alloc failed"));
       return false;
     }
 
     ret = avformat_write_header(oc, NULL);
     if (ret < 0) {
-      LOG_ERROR("avformat_write_header failed");
+      LOG_ERROR(std::string("avformat_write_header failed"));
       return false;
     }
 
@@ -132,7 +132,7 @@ public:
     }
     ret = av_write_frame(fmt_ctx, pkt);
     if (ret < 0) {
-      LOG_ERROR("av_write_frame failed, ret = " + std::to_string(ret));
+      LOG_ERROR(std::string("av_write_frame failed, ret = ") + std::to_string(ret));
       return -1;
     }
     return 0;
@@ -151,7 +151,7 @@ extern "C" Muxer *hwcodec_new_muxer(const char *filename, int width, int height,
       }
     }
   } catch (const std::exception &e) {
-    LOG_ERROR("new muxer exception: " + std::string(e.what()));
+    LOG_ERROR(std::string("new muxer exception: ") + std::string(e.what()));
   }
   if (muxer) {
     muxer->destroy();
@@ -166,7 +166,7 @@ extern "C" int hwcodec_write_video_frame(Muxer *muxer, const uint8_t *data,
   try {
     return muxer->write_video_frame(data, len, pts_ms, key);
   } catch (const std::exception &e) {
-    LOG_ERROR("write_video_frame exception: " + std::string(e.what()));
+    LOG_ERROR(std::string("write_video_frame exception: ") + std::string(e.what()));
   }
   return -1;
 }
@@ -183,6 +183,6 @@ extern "C" void hwcodec_free_muxer(Muxer *muxer) {
     delete muxer;
     muxer = NULL;
   } catch (const std::exception &e) {
-    LOG_ERROR("free_muxer exception: " + std::string(e.what()));
+    LOG_ERROR(std::string("free_muxer exception: ") + std::string(e.what()));
   }
 }

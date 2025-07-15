@@ -70,7 +70,6 @@ public:
 
   void *handle_ = nullptr;
   int64_t luid_;
-  API api_;
   DataFormat dataFormat_;
   int32_t width_ = 0;
   int32_t height_ = 0;
@@ -81,12 +80,11 @@ public:
   const int align_ = 0;
   const bool full_range_ = false;
   const bool bt709_ = false;
-  FFmpegVRamEncoder(void *handle, int64_t luid, API api, DataFormat dataFormat,
+  FFmpegVRamEncoder(void *handle, int64_t luid, DataFormat dataFormat,
                     int32_t width, int32_t height, int32_t kbs,
                     int32_t framerate, int32_t gop) {
     handle_ = handle;
     luid_ = luid;
-    api_ = api;
     dataFormat_ = dataFormat;
     width_ = width;
     height_ = height;
@@ -103,7 +101,7 @@ public:
 
     native_ = std::make_unique<NativeDevice>();
     if (!native_->Init(luid_, (ID3D11Device *)handle_)) {
-      LOG_ERROR("NativeDevice init failed");
+      LOG_ERROR(std::string("NativeDevice init failed"));
       return false;
     }
     d3d11Device_ = native_->device_.Get();
@@ -115,14 +113,14 @@ public:
     if (!choose_encoder(vendor)) {
       return false;
     }
-    LOG_INFO("encoder name: " + encoder_->name_);
+          LOG_INFO(std::string("encoder name: ") + encoder_->name_);
     if (!(codec = avcodec_find_encoder_by_name(encoder_->name_.c_str()))) {
-      LOG_ERROR("Codec " + encoder_->name_ + " not found");
+      LOG_ERROR(std::string("Codec ") + encoder_->name_ + " not found");
       return false;
     }
 
     if (!(c_ = avcodec_alloc_context3(codec))) {
-      LOG_ERROR("Could not allocate video codec context");
+      LOG_ERROR(std::string("Could not allocate video codec context"));
       return false;
     }
 
@@ -141,7 +139,7 @@ public:
 
     hw_device_ctx_ = av_hwdevice_ctx_alloc(encoder_->device_type_);
     if (!hw_device_ctx_) {
-      LOG_ERROR("av_hwdevice_ctx_create failed");
+      LOG_ERROR(std::string("av_hwdevice_ctx_create failed"));
       return false;
     }
 
@@ -156,7 +154,7 @@ public:
     d3d11vaDeviceContext->lock_ctx = this;
     ret = av_hwdevice_ctx_init(hw_device_ctx_);
     if (ret < 0) {
-      LOG_ERROR("av_hwdevice_ctx_init failed, ret = " + av_err2str(ret));
+      LOG_ERROR(std::string("av_hwdevice_ctx_init failed, ret = ") + av_err2str(ret));
       return false;
     }
     if (encoder_->derived_device_type_ != AV_HWDEVICE_TYPE_NONE) {
@@ -164,8 +162,8 @@ public:
       ret = av_hwdevice_ctx_create_derived(
           &derived_context, encoder_->derived_device_type_, hw_device_ctx_, 0);
       if (ret) {
-        LOG_ERROR("av_hwdevice_ctx_create_derived failed, err = " +
-                  av_err2str(ret));
+            LOG_ERROR(std::string("av_hwdevice_ctx_create_derived failed, err = ") +
+              av_err2str(ret));
         return false;
       }
       av_buffer_unref(&hw_device_ctx_);
@@ -177,18 +175,18 @@ public:
     }
 
     if (!(pkt_ = av_packet_alloc())) {
-      LOG_ERROR("Could not allocate video packet");
+      LOG_ERROR(std::string("Could not allocate video packet"));
       return false;
     }
 
     if ((ret = avcodec_open2(c_, codec, NULL)) < 0) {
-      LOG_ERROR("avcodec_open2 failed, ret = " + av_err2str(ret) +
+      LOG_ERROR(std::string("avcodec_open2 failed, ret = ") + av_err2str(ret) +
                 ", name: " + encoder_->name_);
       return false;
     }
 
     if (!(frame_ = av_frame_alloc())) {
-      LOG_ERROR("Could not allocate video frame");
+      LOG_ERROR(std::string("Could not allocate video frame"));
       return false;
     }
     frame_->format = c_->pix_fmt;
@@ -201,20 +199,20 @@ public:
     frame_->chroma_location = c_->chroma_sample_location;
 
     if ((ret = av_hwframe_get_buffer(c_->hw_frames_ctx, frame_, 0)) < 0) {
-      LOG_ERROR("av_frame_get_buffer failed, ret = " + av_err2str(ret));
+      LOG_ERROR(std::string("av_frame_get_buffer failed, ret = ") + av_err2str(ret));
       return false;
     }
     if (frame_->format == AV_PIX_FMT_QSV) {
       mapped_frame_ = av_frame_alloc();
       if (!mapped_frame_) {
-        LOG_ERROR("Could not allocate mapped video frame");
+        LOG_ERROR(std::string("Could not allocate mapped video frame"));
         return false;
       }
       mapped_frame_->format = AV_PIX_FMT_D3D11;
       ret = av_hwframe_map(mapped_frame_, frame_,
                            AV_HWFRAME_MAP_WRITE | AV_HWFRAME_MAP_OVERWRITE);
       if (ret) {
-        LOG_ERROR("av_hwframe_map failed, err = " + av_err2str(ret));
+        LOG_ERROR(std::string("av_hwframe_map failed, err = ") + av_err2str(ret));
         return false;
       }
       encode_texture_ = (ID3D11Texture2D *)mapped_frame_->data[0];
@@ -272,7 +270,7 @@ private:
       } else if (dataFormat_ == H265) {
         name = "hevc_nvenc";
       } else {
-        LOG_ERROR("Unsupported data format: " + std::to_string(dataFormat_));
+        LOG_ERROR(std::string("Unsupported data format: ") + std::to_string(dataFormat_));
         return false;
       }
       encoder_ = std::make_unique<Encoder>(
@@ -286,7 +284,7 @@ private:
       } else if (dataFormat_ == H265) {
         name = "hevc_amf";
       } else {
-        LOG_ERROR("Unsupported data format: " + std::to_string(dataFormat_));
+        LOG_ERROR(std::string("Unsupported data format: ") + std::to_string(dataFormat_));
         return false;
       }
       encoder_ = std::make_unique<Encoder>(
@@ -300,7 +298,7 @@ private:
       } else if (dataFormat_ == H265) {
         name = "hevc_qsv";
       } else {
-        LOG_ERROR("Unsupported data format: " + std::to_string(dataFormat_));
+        LOG_ERROR(std::string("Unsupported data format: ") + std::to_string(dataFormat_));
         return false;
       }
       encoder_ = std::make_unique<Encoder>(
@@ -308,7 +306,7 @@ private:
           AV_HWDEVICE_TYPE_QSV, AV_PIX_FMT_QSV, AV_PIX_FMT_NV12);
       return true;
     } else {
-      LOG_ERROR("Unsupported vendor: " + std::to_string(vendor));
+      LOG_ERROR(std::string("Unsupported vendor: ") + std::to_string(vendor));
       return false;
     }
     return false;
@@ -318,7 +316,7 @@ private:
     bool encoded = false;
     frame_->pts = ms;
     if ((ret = avcodec_send_frame(c_, frame_)) < 0) {
-      LOG_ERROR("avcodec_send_frame failed, ret = " + av_err2str(ret));
+      LOG_ERROR(std::string("avcodec_send_frame failed, ret = ") + av_err2str(ret));
       return ret;
     }
 
@@ -326,12 +324,12 @@ private:
     while (ret >= 0 && util::elapsed_ms(start) < ENCODE_TIMEOUT_MS) {
       if ((ret = avcodec_receive_packet(c_, pkt_)) < 0) {
         if (ret != AVERROR(EAGAIN)) {
-          LOG_ERROR("avcodec_receive_packet failed, ret = " + av_err2str(ret));
+          LOG_ERROR(std::string("avcodec_receive_packet failed, ret = ") + av_err2str(ret));
         }
         goto _exit;
       }
       if (!pkt_->data || !pkt_->size) {
-        LOG_ERROR("avcodec_receive_packet failed, pkt size is 0");
+        LOG_ERROR(std::string("avcodec_receive_packet failed, pkt size is 0"));
         goto _exit;
       }
       encoded = true;
@@ -351,7 +349,7 @@ private:
       D3D11_TEXTURE2D_DESC desc;
       texture2D->GetDesc(&desc);
       if (desc.Format != DXGI_FORMAT_NV12) {
-        LOG_ERROR("convert: texture format mismatch, " +
+        LOG_ERROR(std::string("convert: texture format mismatch, ") +
                   std::to_string(desc.Format) +
                   " != " + std::to_string(DXGI_FORMAT_NV12));
         return false;
@@ -374,12 +372,12 @@ private:
       }
       if (!native_->BgraToNv12((ID3D11Texture2D *)texture, texture2D, width_,
                                height_, colorSpace_in, colorSpace_out)) {
-        LOG_ERROR("convert: BgraToNv12 failed");
+        LOG_ERROR(std::string("convert: BgraToNv12 failed"));
         return false;
       }
       return true;
     } else {
-      LOG_ERROR("convert: unsupported format, " +
+      LOG_ERROR(std::string("convert: unsupported format, ") +
                 std::to_string(frame_->format));
       return false;
     }
@@ -392,7 +390,7 @@ private:
     bool ret = true;
 
     if (!(hw_frames_ref = av_hwframe_ctx_alloc(hw_device_ctx_))) {
-      LOG_ERROR("av_hwframe_ctx_alloc failed.");
+      LOG_ERROR(std::string("av_hwframe_ctx_alloc failed."));
       return false;
     }
     frames_ctx = (AVHWFramesContext *)(hw_frames_ref->data);
@@ -409,13 +407,13 @@ private:
       frames_hwctx->MiscFlags = 0;
     }
     if ((err = av_hwframe_ctx_init(hw_frames_ref)) < 0) {
-      LOG_ERROR("av_hwframe_ctx_init failed.");
+      LOG_ERROR(std::string("av_hwframe_ctx_init failed."));
       av_buffer_unref(&hw_frames_ref);
       return false;
     }
     c_->hw_frames_ctx = av_buffer_ref(hw_frames_ref);
     if (!c_->hw_frames_ctx) {
-      LOG_ERROR("av_buffer_ref failed");
+      LOG_ERROR(std::string("av_buffer_ref failed"));
       ret = false;
     }
     av_buffer_unref(&hw_frames_ref);
@@ -431,13 +429,13 @@ void unlockContext(void *lock_ctx) { (void)lock_ctx; }
 } // namespace
 
 extern "C" {
-FFmpegVRamEncoder *ffmpeg_vram_new_encoder(void *handle, int64_t luid, API api,
+FFmpegVRamEncoder *ffmpeg_vram_new_encoder(void *handle, int64_t luid,
                                            DataFormat dataFormat, int32_t width,
                                            int32_t height, int32_t kbs,
                                            int32_t framerate, int32_t gop) {
   FFmpegVRamEncoder *encoder = NULL;
   try {
-    encoder = new FFmpegVRamEncoder(handle, luid, api, dataFormat, width,
+    encoder = new FFmpegVRamEncoder(handle, luid, dataFormat, width,
                                     height, kbs, framerate, gop);
     if (encoder) {
       if (encoder->init()) {
@@ -445,7 +443,7 @@ FFmpegVRamEncoder *ffmpeg_vram_new_encoder(void *handle, int64_t luid, API api,
       }
     }
   } catch (const std::exception &e) {
-    LOG_ERROR("new FFmpegVRamEncoder failed, " + std::string(e.what()));
+    LOG_ERROR(std::string("new FFmpegVRamEncoder failed, ") + std::string(e.what()));
   }
   if (encoder) {
     encoder->destroy();
@@ -460,7 +458,7 @@ int ffmpeg_vram_encode(FFmpegVRamEncoder *encoder, void *texture,
   try {
     return encoder->encode(texture, callback, obj, ms);
   } catch (const std::exception &e) {
-    LOG_ERROR("ffmpeg_vram_encode failed, " + std::string(e.what()));
+    LOG_ERROR(std::string("ffmpeg_vram_encode failed, ") + std::string(e.what()));
   }
   return -1;
 }
@@ -473,7 +471,7 @@ void ffmpeg_vram_destroy_encoder(FFmpegVRamEncoder *encoder) {
     delete encoder;
     encoder = NULL;
   } catch (const std::exception &e) {
-    LOG_ERROR("free encoder failed, " + std::string(e.what()));
+    LOG_ERROR(std::string("free encoder failed, ") + std::string(e.what()));
   }
 }
 
@@ -481,7 +479,7 @@ int ffmpeg_vram_set_bitrate(FFmpegVRamEncoder *encoder, int kbs) {
   try {
     return encoder->set_bitrate(kbs);
   } catch (const std::exception &e) {
-    LOG_ERROR("ffmpeg_ram_set_bitrate failed, " + std::string(e.what()));
+    LOG_ERROR(std::string("ffmpeg_ram_set_bitrate failed, ") + std::string(e.what()));
   }
   return -1;
 }
@@ -490,28 +488,41 @@ int ffmpeg_vram_set_framerate(FFmpegVRamEncoder *encoder, int32_t framerate) {
   try {
     return encoder->set_bitrate(framerate);
   } catch (const std::exception &e) {
-    LOG_ERROR("ffmpeg_vram_set_framerate failed, " + std::string(e.what()));
+    LOG_ERROR(std::string("ffmpeg_vram_set_framerate failed, ") + std::string(e.what()));
   }
   return -1;
 }
 
-int ffmpeg_vram_test_encode(void *outDescs, int32_t maxDescNum,
-                            int32_t *outDescNum, API api, DataFormat dataFormat,
+int ffmpeg_vram_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxDescNum,
+                            int32_t *outDescNum, DataFormat dataFormat,
                             int32_t width, int32_t height, int32_t kbs,
-                            int32_t framerate, int32_t gop) {
+                            int32_t framerate, int32_t gop,
+                            const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) {
   try {
-    AdapterDesc *descs = (AdapterDesc *)outDescs;
     int count = 0;
-    AdapterVendor vendors[] = {ADAPTER_VENDOR_INTEL, ADAPTER_VENDOR_NVIDIA,
-                               ADAPTER_VENDOR_AMD};
-    for (auto vendor : vendors) {
+    struct VendorMapping {
+       AdapterVendor adapter_vendor;
+       int driver_vendor;
+    };
+    VendorMapping vendors[] = {
+      {ADAPTER_VENDOR_INTEL, VENDOR_INTEL},
+      {ADAPTER_VENDOR_NVIDIA, VENDOR_NV},
+      {ADAPTER_VENDOR_AMD, VENDOR_AMD}
+    };
+    
+    for (auto vendorMap : vendors) {
       Adapters adapters;
-      if (!adapters.Init(vendor))
+      if (!adapters.Init(vendorMap.adapter_vendor))
         continue;
       for (auto &adapter : adapters.adapters_) {
+        int64_t currentLuid = LUID(adapter.get()->desc1_);
+        if (util::skip_test(excludedLuids, excludeFormats, excludeCount, currentLuid, dataFormat)) {
+          continue;
+        }
+        
         FFmpegVRamEncoder *e = (FFmpegVRamEncoder *)ffmpeg_vram_new_encoder(
-            (void *)adapter.get()->device_.Get(), LUID(adapter.get()->desc1_),
-            api, dataFormat, width, height, kbs, framerate, gop);
+            (void *)adapter.get()->device_.Get(), currentLuid,
+            dataFormat, width, height, kbs, framerate, gop);
         if (!e)
           continue;
         if (e->native_->EnsureTexture(e->width_, e->height_)) {
@@ -522,8 +533,8 @@ int ffmpeg_vram_test_encode(void *outDescs, int32_t maxDescNum,
                                  &key_obj, 0) == 0 && key_obj == 1;
           int64_t elapsed = util::elapsed_ms(start);
           if (succ && elapsed < TEST_TIMEOUT_MS) {
-            AdapterDesc *desc = descs + count;
-            desc->luid = LUID(adapter.get()->desc1_);
+            outLuids[count] = currentLuid;
+            outVendors[count] = (int32_t)vendorMap.driver_vendor;  // Map adapter vendor to driver vendor
             count += 1;
           }
         }
@@ -539,7 +550,7 @@ int ffmpeg_vram_test_encode(void *outDescs, int32_t maxDescNum,
     *outDescNum = count;
     return 0;
   } catch (const std::exception &e) {
-    LOG_ERROR("test failed: " + e.what());
+    LOG_ERROR(std::string("test failed: ") + e.what());
   }
   return -1;
 }

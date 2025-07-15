@@ -20,7 +20,7 @@
   {                                                                            \
     mfxStatus __sts = (X);                                                     \
     if (__sts != MFX_ERR_NONE) {                                               \
-      LOG_ERROR(MSG + " failed, sts=" + std::to_string((int)__sts));           \
+      LOG_ERROR(std::string(MSG) + " failed, sts=" + std::to_string((int)__sts));           \
       return __sts;                                                            \
     }                                                                          \
   }
@@ -77,7 +77,6 @@ public:
 
   void *handle_ = nullptr;
   int64_t luid_;
-  API api_;
   DataFormat dataFormat_;
   int32_t width_ = 0;
   int32_t height_ = 0;
@@ -88,12 +87,11 @@ public:
   bool full_range_ = false;
   bool bt709_ = false;
 
-  VplEncoder(void *handle, int64_t luid, API api, DataFormat dataFormat,
+  VplEncoder(void *handle, int64_t luid, DataFormat dataFormat,
              int32_t width, int32_t height, int32_t kbs, int32_t framerate,
              int32_t gop) {
     handle_ = handle;
     luid_ = luid;
-    api_ = api;
     dataFormat_ = dataFormat;
     width_ = width;
     height_ = height;
@@ -110,7 +108,7 @@ public:
     if (!native_) {
       native_ = std::make_unique<NativeDevice>();
       if (!native_->Init(luid_, (ID3D11Device *)handle_)) {
-        LOG_ERROR("failed to init native device");
+        LOG_ERROR(std::string("failed to init native device"));
         return MFX_ERR_DEVICE_FAILED;
       }
     }
@@ -132,7 +130,7 @@ public:
     int nEncSurfIdx =
         GetFreeSurfaceIndex(encSurfaces_.data(), encSurfaces_.size());
     if (nEncSurfIdx >= encSurfaces_.size()) {
-      LOG_ERROR("no free enc surface");
+      LOG_ERROR(std::string("no free enc surface"));
       return -1;
     }
     mfxFrameSurface1 *encSurf = &encSurfaces_[nEncSurfIdx];
@@ -141,7 +139,7 @@ public:
     sts = vppOneFrame(tex, encSurf, syncp);
     syncp = NULL;
     if (sts != MFX_ERR_NONE) {
-      LOG_ERROR("vppOneFrame failed, sts=" + std::to_string((int)sts));
+      LOG_ERROR(std::string("vppOneFrame failed, sts=") + std::to_string((int)sts));
       return -1;
     }
 #elif defined(CONFIG_USE_D3D_CONVERT)
@@ -172,7 +170,7 @@ public:
     }
     if (!native_->BgraToNv12(tex, nv12Texture_.Get(), width_, height_,
                              colorSpace_in, colorSpace_out)) {
-      LOG_ERROR("failed to convert to NV12");
+      LOG_ERROR(std::string("failed to convert to NV12"));
       return -1;
     }
     encSurf->Data.MemId = nv12Texture_.Get();
@@ -260,7 +258,7 @@ private:
     }
     mfxVPP_ = new MFXVideoVPP(session_);
     if (!mfxVPP_) {
-      LOG_ERROR("Failed to create MFXVideoVPP");
+      LOG_ERROR(std::string("Failed to create MFXVideoVPP"));
       return MFX_ERR_MEMORY_ALLOC;
     }
 
@@ -292,7 +290,7 @@ private:
 
     // Basic
     if (!convert_codec(dataFormat_, mfxEncParams_.mfx.CodecId)) {
-      LOG_ERROR("unsupported dataFormat: " + std::to_string(dataFormat_));
+      LOG_ERROR(std::string("unsupported dataFormat: ") + std::to_string(dataFormat_));
       return MFX_ERR_UNSUPPORTED;
     }
     // mfxEncParams_.mfx.LowPower = MFX_CODINGOPTION_ON;
@@ -367,7 +365,7 @@ private:
     }
     mfxENC_ = new MFXVideoENCODE(session_);
     if (!mfxENC_) {
-      LOG_ERROR("failed to create MFXVideoENCODE");
+      LOG_ERROR(std::string("failed to create MFXVideoENCODE"));
       return MFX_ERR_NOT_INITIALIZED;
     }
 
@@ -421,7 +419,7 @@ private:
         GetFreeSurfaceIndex(vppSurfaces_.data(),
                             vppSurfaces_.size()); // Find free frame surface
     if (surfIdx >= vppSurfaces_.size()) {
-      LOG_ERROR("No free vpp surface");
+      LOG_ERROR(std::string("No free vpp surface"));
       return MFX_ERR_MORE_SURFACE;
     }
     mfxFrameSurface1 *in = &vppSurfaces_[surfIdx];
@@ -462,7 +460,7 @@ private:
     auto start = util::now();
     do {
       if (util::elapsed_ms(start) > ENCODE_TIMEOUT_MS) {
-        LOG_ERROR("encode timeout");
+        LOG_ERROR(std::string("encode timeout"));
         break;
       }
       mfxBS_.DataLength = 0;
@@ -472,17 +470,17 @@ private:
       sts = mfxENC_->EncodeFrameAsync(NULL, in, &mfxBS_, &syncp);
       if (MFX_ERR_NONE == sts) {
         if (!syncp) {
-          LOG_ERROR("should not happen, error is none while syncp is null");
+          LOG_ERROR(std::string("should not happen, error is none while syncp is null"));
           break;
         }
         sts = session_.SyncOperation(
             syncp, 1000); // Synchronize. Wait until encoded frame is ready
         if (MFX_ERR_NONE != sts) {
-          LOG_ERROR("SyncOperation failed, sts=" + std::to_string(sts));
+          LOG_ERROR(std::string("SyncOperation failed, sts=") + std::to_string(sts));
           break;
         }
         if (mfxBS_.DataLength <= 0) {
-          LOG_ERROR("mfxBS_.DataLength <= 0");
+          LOG_ERROR(std::string("mfxBS_.DataLength <= 0"));
           break;
         }
         int key = (mfxBS_.FrameType & MFX_FRAMETYPE_I) ||
@@ -493,11 +491,11 @@ private:
         encoded = true;
         break;
       } else if (MFX_WRN_DEVICE_BUSY == sts) {
-        LOG_INFO("device busy");
+        LOG_INFO(std::string("device busy"));
         Sleep(1);
         continue;
       } else if (MFX_ERR_NOT_ENOUGH_BUFFER == sts) {
-        LOG_ERROR("not enough buffer, size=" +
+        LOG_ERROR(std::string("not enough buffer, size=") +
                   std::to_string(mfxBS_.MaxLength));
         if (mfxBS_.MaxLength < 10 * 1024 * 1024) {
           mfxBS_.MaxLength *= 2;
@@ -509,14 +507,14 @@ private:
           break;
         }
       } else {
-        LOG_ERROR("EncodeFrameAsync failed, sts=" + std::to_string(sts));
+        LOG_ERROR(std::string("EncodeFrameAsync failed, sts=") + std::to_string(sts));
         break;
       }
       // double confirm, check continue
     } while (MFX_WRN_DEVICE_BUSY == sts || MFX_ERR_NOT_ENOUGH_BUFFER == sts);
 
     if (!encoded) {
-      LOG_ERROR("encode failed, sts=" + std::to_string(sts));
+      LOG_ERROR(std::string("encode failed, sts=") + std::to_string(sts));
     }
     return encoded ? 0 : -1;
   }
@@ -594,12 +592,12 @@ int mfx_destroy_encoder(void *encoder) {
   return 0;
 }
 
-void *mfx_new_encoder(void *handle, int64_t luid, API api,
+void *mfx_new_encoder(void *handle, int64_t luid,
                       DataFormat dataFormat, int32_t w, int32_t h, int32_t kbs,
                       int32_t framerate, int32_t gop) {
   VplEncoder *p = NULL;
   try {
-    p = new VplEncoder(handle, luid, api, dataFormat, w, h, kbs, framerate,
+    p = new VplEncoder(handle, luid, dataFormat, w, h, kbs, framerate,
                        gop);
     if (!p) {
       return NULL;
@@ -608,10 +606,10 @@ void *mfx_new_encoder(void *handle, int64_t luid, API api,
     if (sts == MFX_ERR_NONE) {
       return p;
     } else {
-      LOG_ERROR("Init failed, sts=" + std::to_string(sts));
+      LOG_ERROR(std::string("Init failed, sts=") + std::to_string(sts));
     }
   } catch (const std::exception &e) {
-    LOG_ERROR("Exception: " + e.what());
+    LOG_ERROR(std::string("Exception: ") + e.what());
   }
 
   if (p) {
@@ -627,25 +625,29 @@ int mfx_encode(void *encoder, ID3D11Texture2D *tex, EncodeCallback callback,
   try {
     return ((VplEncoder *)encoder)->encode(tex, callback, obj, ms);
   } catch (const std::exception &e) {
-    LOG_ERROR("Exception: " + e.what());
+    LOG_ERROR(std::string("Exception: ") + e.what());
   }
   return -1;
 }
 
-int mfx_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
-                    API api, DataFormat dataFormat, int32_t width,
+int mfx_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxDescNum, int32_t *outDescNum,
+                    DataFormat dataFormat, int32_t width,
                     int32_t height, int32_t kbs, int32_t framerate,
-                    int32_t gop) {
+                    int32_t gop, const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) {
   try {
-    AdapterDesc *descs = (AdapterDesc *)outDescs;
     Adapters adapters;
     if (!adapters.Init(ADAPTER_VENDOR_INTEL))
       return -1;
     int count = 0;
     for (auto &adapter : adapters.adapters_) {
+      int64_t currentLuid = LUID(adapter.get()->desc1_);
+      if (util::skip_test(excludedLuids, excludeFormats, excludeCount, currentLuid, dataFormat)) {
+        continue;
+      }
+      
       VplEncoder *e = (VplEncoder *)mfx_new_encoder(
-          (void *)adapter.get()->device_.Get(), LUID(adapter.get()->desc1_),
-          api, dataFormat, width, height, kbs, framerate, gop);
+          (void *)adapter.get()->device_.Get(), currentLuid,
+          dataFormat, width, height, kbs, framerate, gop);
       if (!e)
         continue;
       if (e->native_->EnsureTexture(e->width_, e->height_)) {
@@ -656,8 +658,8 @@ int mfx_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
                        0) == 0 && key_obj == 1;
         int64_t elapsed = util::elapsed_ms(start);
         if (succ && elapsed < TEST_TIMEOUT_MS) {
-          AdapterDesc *desc = descs + count;
-          desc->luid = LUID(adapter.get()->desc1_);
+          outLuids[count] = currentLuid;
+          outVendors[count] = VENDOR_INTEL;
           count += 1;
         }
       }
@@ -671,7 +673,7 @@ int mfx_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
     return 0;
 
   } catch (const std::exception &e) {
-    LOG_ERROR("test failed: " + e.what());
+    LOG_ERROR(std::string("test failed: ") + e.what());
   }
   return -1;
 }
@@ -690,12 +692,12 @@ int mfx_set_bitrate(void *encoder, int32_t kbs) {
     p->mfxEncParams_.mfx.MaxKbps = kbs;
     sts = p->mfxENC_->Reset(&p->mfxEncParams_);
     if (sts != MFX_ERR_NONE) {
-      LOG_ERROR("reset failed, sts=" + std::to_string(sts));
+      LOG_ERROR(std::string("reset failed, sts=") + std::to_string(sts));
       return -1;
     }
     return 0;
   } catch (const std::exception &e) {
-    LOG_ERROR("Exception: " + e.what());
+    LOG_ERROR(std::string("Exception: ") + e.what());
   }
   return -1;
 }

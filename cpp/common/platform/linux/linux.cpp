@@ -1,9 +1,13 @@
 #include "linux.h"
 #include "../../log.h"
+#include <cstring>
 #include <dlfcn.h>
 #include <dynlink_cuda.h>
 #include <dynlink_loader.h>
+#include <errno.h>
 #include <exception> // Include the necessary header file
+#include <signal.h>
+#include <sys/prctl.h>
 
 namespace
 {
@@ -12,17 +16,17 @@ namespace
   {
     if (cuda_load_functions(pp_cuda_dl, NULL) < 0)
     {
-      LOG_TRACE("cuda_load_functions failed");
+      LOG_TRACE(std::string("cuda_load_functions failed"));
       throw "cuda_load_functions failed";
     }
     if (nvenc_load_functions(pp_nvenc_dl, NULL) < 0)
     {
-      LOG_TRACE("nvenc_load_functions failed");
+      LOG_TRACE(std::string("nvenc_load_functions failed"));
       throw "nvenc_load_functions failed";
     }
     if (cuvid_load_functions(pp_cvdl, NULL) < 0)
     {
-      LOG_TRACE("cuvid_load_functions failed");
+      LOG_TRACE(std::string("cuvid_load_functions failed"));
       throw "cuvid_load_functions failed";
     }
   }
@@ -61,7 +65,7 @@ int linux_support_nv()
   }
   catch (...)
   {
-    LOG_TRACE("nvidia driver not support");
+    LOG_TRACE(std::string("nvidia driver not support"));
   }
   return -1;
 }
@@ -98,4 +102,17 @@ int linux_support_intel()
     }
   }
   return -1;
+}
+
+int setup_parent_death_signal() {
+  // Set up parent death signal to ensure this process dies if parent dies
+  // This prevents orphaned processes especially when running with different
+  // user permissions
+  int ret = prctl(PR_SET_PDEATHSIG, SIGKILL);
+  if (ret != 0) {
+    LOG_ERROR(std::string("Failed to set parent death signal:") + std::to_string(errno));
+    return -1;
+  } else {
+    return 0;
+  }
 }

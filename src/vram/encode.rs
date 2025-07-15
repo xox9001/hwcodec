@@ -1,5 +1,5 @@
 use crate::{
-    common::{AdapterDesc, Driver::*},
+    common::Driver::*,
     ffmpeg::init_av_log,
     vram::{
         amf, ffmpeg, inner::EncodeCalls, mfx, nv, DynamicContext, EncodeContext, FeatureContext,
@@ -7,11 +7,7 @@ use crate::{
 };
 use log::trace;
 use std::{
-    fmt::Display,
-    os::raw::{c_int, c_void},
-    slice::from_raw_parts,
-    sync::{Arc, Mutex},
-    thread,
+    fmt::Display, os::raw::{c_int, c_void}, slice::from_raw_parts
 };
 
 pub struct Encoder {
@@ -40,7 +36,6 @@ impl Encoder {
             let codec = (calls.new)(
                 ctx.d.device.unwrap_or(std::ptr::null_mut()),
                 ctx.f.luid,
-                ctx.f.api as _,
                 ctx.f.data_format as i32,
                 ctx.d.width,
                 ctx.d.height,
@@ -132,6 +127,8 @@ impl Display for EncodeFrame {
 }
 
 pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
+    use log::debug;
+
     let mut natives: Vec<_> = vec![];
     natives.append(
         &mut ffmpeg::possible_support_encoders()
@@ -157,63 +154,95 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
             .map(|n| (MFX, n))
             .collect(),
     );
-    let inputs = natives.drain(..).map(|(driver, n)| EncodeContext {
-        f: FeatureContext {
-            driver,
-            api: n.api,
-            data_format: n.format,
-            luid: 0,
-        },
-        d,
-    });
-    let outputs = Arc::new(Mutex::new(Vec::<EncodeContext>::new()));
-    let mut handles = vec![];
-    let mutex = Arc::new(Mutex::new(0));
+    let inputs: Vec<EncodeContext> = natives
+        .drain(..)
+        .map(|(driver, n)| EncodeContext {
+            f: FeatureContext {
+                driver: driver.clone(),
+                vendor: driver, // Initially set vendor same as driver, will be updated by test results
+                data_format: n.format,
+                luid: 0,
+            },
+            d,
+        })
+        .collect();
+
+    let mut outputs = Vec::<EncodeContext>::new();
+    let mut exclude_luid_formats = Vec::<(i64, i32)>::new();
+
     for input in inputs {
-        let outputs = outputs.clone();
-        let mutex = mutex.clone();
-        let handle = thread::spawn(move || {
-            let _lock;
-            if input.f.driver == NV || input.f.driver == FFMPEG {
-                _lock = mutex.lock().unwrap();
-            }
-            let test = match input.f.driver {
-                NV => nv::encode_calls().test,
-                AMF => amf::encode_calls().test,
-                MFX => mfx::encode_calls().test,
-                FFMPEG => ffmpeg::encode_calls().test,
-            };
-            let mut descs: Vec<AdapterDesc> = vec![];
-            descs.resize(crate::vram::MAX_ADATERS, unsafe { std::mem::zeroed() });
-            let mut desc_count: i32 = 0;
-            if 0 == unsafe {
-                test(
-                    descs.as_mut_ptr() as _,
-                    descs.len() as _,
-                    &mut desc_count,
-                    input.f.api as _,
-                    input.f.data_format as i32,
-                    input.d.width,
-                    input.d.height,
-                    input.d.kbitrate,
-                    input.d.framerate,
-                    input.d.gop,
-                )
-            } {
-                if desc_count as usize <= descs.len() {
-                    for i in 0..desc_count as usize {
-                        let mut input = input.clone();
-                        input.f.luid = descs[i].luid;
-                        outputs.lock().unwrap().push(input);
-                    }
+        debug!(
+            "Testing vram encoder: driver={:?}, format={:?}",
+            input.f.driver, input.f.data_format
+        );
+
+        let test = match input.f.driver {
+            NV => nv::encode_calls().test,
+            AMF => amf::encode_calls().test,
+            MFX => mfx::encode_calls().test,
+            FFMPEG => ffmpeg::encode_calls().test,
+        };
+
+        let mut luids: Vec<i64> = vec![0; crate::vram::MAX_ADATERS];
+        let mut vendors: Vec<i32> = vec![0; crate::vram::MAX_ADATERS];
+        let mut desc_count: i32 = 0;
+
+        let (excluded_luids, exclude_formats): (Vec<i64>, Vec<i32>) = exclude_luid_formats
+            .iter()
+            .map(|(luid, format)| (*luid, *format))
+            .unzip();
+
+        let result = unsafe {
+            test(
+                luids.as_mut_ptr(),
+                vendors.as_mut_ptr(),
+                luids.len() as _,
+                &mut desc_count,
+                input.f.data_format as i32,
+                input.d.width,
+                input.d.height,
+                input.d.kbitrate,
+                input.d.framerate,
+                input.d.gop,
+                excluded_luids.as_ptr(),
+                exclude_formats.as_ptr(),
+                exclude_luid_formats.len() as i32,
+            )
+        };
+
+        if result == 0 {
+            if desc_count as usize <= luids.len() {
+                debug!(
+                    "vram encoder test passed: driver={:?}, adapters={}",
+                    input.f.driver, desc_count
+                );
+                for i in 0..desc_count as usize {
+                    let mut input = input.clone();
+                    input.f.luid = luids[i];
+                    input.f.vendor = match vendors[i] {
+                        0 => NV,
+                        1 => AMF,
+                        2 => MFX,
+                        _ => {
+                            log::error!(
+                                "Unexpected vendor value encountered: {}. Skipping.",
+                                vendors[i]
+                            );
+                            continue;
+                        },
+                    };
+                    exclude_luid_formats.push((luids[i], input.f.data_format as i32));
+                    outputs.push(input);
                 }
             }
-        });
-        handles.push(handle);
+        } else {
+            debug!(
+                "vram encoder test failed: driver={:?}, error={}",
+                input.f.driver, result
+            );
+        }
     }
-    for handle in handles {
-        handle.join().ok();
-    }
-    let mut x = outputs.lock().unwrap().clone();
-    x.drain(..).map(|e| e.f).collect()
+
+    let result: Vec<_> = outputs.drain(..).map(|e| e.f).collect();
+    result
 }

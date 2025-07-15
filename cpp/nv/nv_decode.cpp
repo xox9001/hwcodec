@@ -36,13 +36,13 @@ public:
   CUVIDAutoUnmapper(CudaFunctions *cudl, CUgraphicsResource *pCuResource)
       : cudl_(cudl), pCuResource_(pCuResource) {
     if (!succ(cudl->cuGraphicsMapResources(1, pCuResource, 0))) {
-      LOG_TRACE("cuGraphicsMapResources failed");
+      LOG_TRACE(std::string("cuGraphicsMapResources failed"));
       NVDEC_THROW_ERROR("cuGraphicsMapResources failed", CUDA_ERROR_UNKNOWN);
     }
   }
   ~CUVIDAutoUnmapper() {
     if (!succ(cudl_->cuGraphicsUnmapResources(1, pCuResource_, 0))) {
-      LOG_TRACE("cuGraphicsUnmapResources failed");
+      LOG_TRACE(std::string("cuGraphicsUnmapResources failed"));
       // NVDEC_THROW_ERROR("cuGraphicsUnmapResources failed",
       // CUDA_ERROR_UNKNOWN);
     }
@@ -55,13 +55,13 @@ class CUVIDAutoCtxPopper {
 public:
   CUVIDAutoCtxPopper(CudaFunctions *cudl, CUcontext cuContext) : cudl_(cudl) {
     if (!succ(cudl->cuCtxPushCurrent(cuContext))) {
-      LOG_TRACE("cuCtxPushCurrent failed");
+      LOG_TRACE(std::string("cuCtxPushCurrent failed"));
       NVDEC_THROW_ERROR("cuCtxPopCurrent failed", CUDA_ERROR_UNKNOWN);
     }
   }
   ~CUVIDAutoCtxPopper() {
     if (!succ(cudl_->cuCtxPopCurrent(NULL))) {
-      LOG_TRACE("cuCtxPopCurrent failed");
+      LOG_TRACE(std::string("cuCtxPopCurrent failed"));
       // NVDEC_THROW_ERROR("cuCtxPopCurrent failed", CUDA_ERROR_UNKNOWN);
     }
   }
@@ -69,11 +69,11 @@ public:
 
 void load_driver(CudaFunctions **pp_cudl, CuvidFunctions **pp_cvdl) {
   if (cuda_load_functions(pp_cudl, NULL) < 0) {
-    LOG_TRACE("cuda_load_functions failed");
+    LOG_TRACE(std::string("cuda_load_functions failed"));
     NVDEC_THROW_ERROR("cuda_load_functions failed", CUDA_ERROR_UNKNOWN);
   }
   if (cuvid_load_functions(pp_cvdl, NULL) < 0) {
-    LOG_TRACE("cuvid_load_functions failed");
+    LOG_TRACE(std::string("cuvid_load_functions failed"));
     NVDEC_THROW_ERROR("cuvid_load_functions failed", CUDA_ERROR_UNKNOWN);
   }
 }
@@ -111,7 +111,6 @@ public:
 
   void *device_;
   int64_t luid_;
-  API api_;
   DataFormat dataFormat_;
 
   bool prepare_tried_ = false;
@@ -122,10 +121,9 @@ public:
   CUVIDEOFORMAT last_video_format_ = {};
 
 public:
-  CuvidDecoder(void *device, int64_t luid, API api, DataFormat dataFormat) {
+  CuvidDecoder(void *device, int64_t luid, DataFormat dataFormat) {
     device_ = device;
     luid_ = luid;
-    api_ = api;
     dataFormat_ = dataFormat;
     ZeroMemory(&last_video_format_, sizeof(last_video_format_));
     load_driver(&cudl_, &cvdl_);
@@ -135,26 +133,26 @@ public:
 
   bool init() {
     if (!succ(cudl_->cuInit(0))) {
-      LOG_ERROR("cuInit failed");
+      LOG_ERROR(std::string("cuInit failed"));
       return false;
     }
     CUdevice cuDevice = 0;
     native_ = std::make_unique<NativeDevice>();
     if (!native_->Init(luid_, (ID3D11Device *)device_, 4)) {
-      LOG_ERROR("Failed to init native device");
+      LOG_ERROR(std::string("Failed to init native device"));
       return false;
     }
     if (!succ(cudl_->cuD3D11GetDevice(&cuDevice, native_->adapter_.Get()))) {
-      LOG_ERROR("Failed to get cuDevice");
+      LOG_ERROR(std::string("Failed to get cuDevice"));
       return false;
     }
 
     if (!succ(cudl_->cuCtxCreate(&cuContext_, 0, cuDevice))) {
-      LOG_ERROR("Failed to create cuContext");
+      LOG_ERROR(std::string("Failed to create cuContext"));
       return false;
     }
     if (!create_nvdecoder()) {
-      LOG_ERROR("Failed to create nvdecoder");
+      LOG_ERROR(std::string("Failed to create nvdecoder"));
       return false;
     }
     return true;
@@ -174,7 +172,7 @@ public:
     int width = dec_->GetWidth();
     int height = dec_->GetHeight();
     if (prepare_tried_ && (width != width_ || height != height_)) {
-      LOG_INFO("resolution changed, (" + std::to_string(width_) + "," +
+      LOG_INFO(std::string("resolution changed, (") + std::to_string(width_) + "," +
                std::to_string(height_) + ") -> (" + std::to_string(width) +
                "," + std::to_string(height) + ")");
       reset_prepare();
@@ -182,7 +180,7 @@ public:
       height_ = height;
     }
     if (!prepare()) {
-      LOG_ERROR("prepare failed");
+      LOG_ERROR(std::string("prepare failed"));
       return -1;
     }
     bool decoded = false;
@@ -190,29 +188,29 @@ public:
       uint8_t *pFrame = dec_->GetFrame();
       native_->BeginQuery();
       if (!copy_cuda_frame(pFrame)) {
-        LOG_ERROR("copy_cuda_frame failed");
+        LOG_ERROR(std::string("copy_cuda_frame failed"));
         native_->EndQuery();
         return -1;
       }
       if (!native_->EnsureTexture(width, height)) {
-        LOG_ERROR("EnsureTexture failed");
+        LOG_ERROR(std::string("EnsureTexture failed"));
         native_->EndQuery();
         return -1;
       }
       native_->next();
       if (!set_rtv(native_->GetCurrentTexture())) {
-        LOG_ERROR("set_rtv failed");
+        LOG_ERROR(std::string("set_rtv failed"));
         native_->EndQuery();
         return -1;
       }
       if (!draw()) {
-        LOG_ERROR("draw failed");
+        LOG_ERROR(std::string("draw failed"));
         native_->EndQuery();
         return -1;
       }
       native_->EndQuery();
       if (!native_->Query()) {
-        LOG_ERROR("Query failed");
+        LOG_ERROR(std::string("Query failed"));
       }
 
       if (callback)
@@ -338,7 +336,7 @@ private:
           (d1.left != d2.left || d1.right != d2.right || d1.top != d2.top ||
            d1.bottom != d2.bottom)) {
         LOG_INFO(
-            "recreate, display area changed from (" + std::to_string(d1.left) +
+            std::string("recreate, display area changed from (") + std::to_string(d1.left) +
             ", " + std::to_string(d1.top) + ", " + std::to_string(d1.right) +
             ", " + std::to_string(d1.bottom) + ") to (" +
             std::to_string(d2.left) + ", " + std::to_string(d2.top) + ", " +
@@ -346,7 +344,7 @@ private:
         if (create_nvdecoder()) {
           return -2;
         } else {
-          LOG_ERROR("create_nvdecoder failed");
+          LOG_ERROR(std::string("create_nvdecoder failed"));
         }
         return -1;
       } else {
@@ -359,7 +357,7 @@ private:
       // https://github.com/NVIDIA/DALI/blob/4f5ee72b287cfbbe0d400734416ff37bd8027099/dali/operators/reader/loader/video/frames_decoder_gpu.cc#L212
       if (maxWidth > 0 && (video_format.coded_width > maxWidth ||
                            video_format.coded_height > maxHeight)) {
-        LOG_INFO("recreate, exceed maxWidth/maxHeight: (" +
+        LOG_INFO(std::string("recreate, exceed maxWidth/maxHeight: (") +
                  std::to_string(video_format.coded_width) + ", " +
                  std::to_string(video_format.coded_height) + " > (" +
                  std::to_string(maxWidth) + ", " + std::to_string(maxHeight) +
@@ -367,10 +365,10 @@ private:
         if (create_nvdecoder()) {
           return -2;
         } else {
-          LOG_ERROR("create_nvdecoder failed");
+          LOG_ERROR(std::string("create_nvdecoder failed"));
         }
       } else {
-        LOG_ERROR("Exception decode_and_recreate: " + e.what());
+        LOG_ERROR(std::string("Exception decode_and_recreate: ") + e.what());
       }
     }
 
@@ -381,7 +379,7 @@ private:
     int width = dec_->GetWidth();
     int height = dec_->GetHeight();
     int chromaHeight = dec_->GetChromaHeight();
-    LOG_TRACE("width:" + std::to_string(width) +
+    LOG_TRACE(std::string("width:") + std::to_string(width) +
               ", height:" + std::to_string(height) +
               ", chromaHeight:" + std::to_string(chromaHeight));
 
@@ -567,7 +565,7 @@ private:
   }
 
   bool create_nvdecoder() {
-    LOG_TRACE("create nvdecoder");
+    LOG_TRACE(std::string("create nvdecoder"));
     bool bUseDeviceFrame = true;
     bool bLowLatency = true;
     bool bDeviceFramePitched = false; // width=pitch
@@ -611,23 +609,23 @@ int nv_destroy_decoder(void *decoder) {
     }
     return 0;
   } catch (const std::exception &e) {
-    LOG_ERROR("destroy failed: " + e.what());
+    LOG_ERROR(std::string("destroy failed: ") + e.what());
   }
   return -1;
 }
 
-void *nv_new_decoder(void *device, int64_t luid, API api,
+void *nv_new_decoder(void *device, int64_t luid,
                      DataFormat dataFormat) {
   CuvidDecoder *p = NULL;
   try {
-    p = new CuvidDecoder(device, luid, api, dataFormat);
+    p = new CuvidDecoder(device, luid, dataFormat);
     if (!p) {
       goto _exit;
     }
     if (p->init())
       return p;
   } catch (const std::exception &ex) {
-    LOG_ERROR("destroy failed: " + ex.what());
+    LOG_ERROR(std::string("destroy failed: ") + ex.what());
     goto _exit;
   }
 
@@ -648,31 +646,35 @@ int nv_decode(void *decoder, uint8_t *data, int len, DecodeCallback callback,
       return HWCODEC_SUCCESS;
     }
   } catch (const std::exception &e) {
-    LOG_ERROR("decode failed" + e.what());
+    LOG_ERROR(std::string("decode failed: ") + e.what());
   }
   return HWCODEC_ERR_COMMON;
 }
 
-int nv_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
-                   int32_t *outDescNum, API api, DataFormat dataFormat,
-                   uint8_t *data, int32_t length) {
+int nv_test_decode(int64_t *outLuids, int32_t *outVendors, int32_t maxDescNum,
+                   int32_t *outDescNum, DataFormat dataFormat,
+                   uint8_t *data, int32_t length, const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) {
   try {
-    AdapterDesc *descs = (AdapterDesc *)outDescs;
     Adapters adapters;
     if (!adapters.Init(ADAPTER_VENDOR_NVIDIA))
       return -1;
     int count = 0;
     for (auto &adapter : adapters.adapters_) {
+      int64_t currentLuid = LUID(adapter.get()->desc1_);
+      if (util::skip_test(excludedLuids, excludeFormats, excludeCount, currentLuid, dataFormat)) {
+        continue;
+      }
+      
       CuvidDecoder *p = (CuvidDecoder *)nv_new_decoder(
-          nullptr, LUID(adapter.get()->desc1_), api, dataFormat);
+          nullptr, currentLuid, dataFormat);
       if (!p)
         continue;
       auto start = util::now();
       bool succ = nv_decode(p, data, length, nullptr, nullptr) == 0;
       int64_t elapsed = util::elapsed_ms(start);
       if (succ && elapsed < TEST_TIMEOUT_MS) {
-        AdapterDesc *desc = descs + count;
-        desc->luid = LUID(adapter.get()->desc1_);
+        outLuids[count] = currentLuid;
+        outVendors[count] = VENDOR_NV;
         count += 1;
       }
       p->destroy();
@@ -684,7 +686,7 @@ int nv_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
     *outDescNum = count;
     return 0;
   } catch (const std::exception &e) {
-    LOG_ERROR("test failed" + e.what());
+    LOG_ERROR(std::string("test failed: ") + e.what());
   }
   return -1;
 }

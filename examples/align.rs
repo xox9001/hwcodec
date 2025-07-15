@@ -43,7 +43,7 @@ fn setup_ram(max_align: i32) {
         },
         None,
     );
-    let decoders = Decoder::available_decoders(None);
+    let decoders = Decoder::available_decoders();
     let h264_encoders = encoders
         .iter()
         .filter(|info| info.name.contains("h264"))

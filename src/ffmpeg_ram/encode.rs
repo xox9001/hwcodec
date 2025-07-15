@@ -15,8 +15,6 @@ use std::{
     fmt::Display,
     os::raw::c_int,
     slice,
-    sync::{Arc, Mutex},
-    thread,
 };
 
 use super::Priority;
@@ -168,13 +166,15 @@ impl Encoder {
     }
 
     pub fn available_encoders(ctx: EncodeContext, _sdk: Option<String>) -> Vec<CodecInfo> {
+        use log::debug;
+
         if !(cfg!(windows) || cfg!(target_os = "linux") || cfg!(target_os = "macos")) {
             return vec![];
         }
         let mut codecs: Vec<CodecInfo> = vec![];
         #[cfg(any(windows, target_os = "linux"))]
         {
-            let contains = |_driver: Driver, _format: DataFormat| {
+            let contains = |_vendor: Driver, _format: DataFormat| {
                 #[cfg(all(windows, feature = "vram"))]
                 {
                     if let Some(_sdk) = _sdk.as_ref() {
@@ -182,7 +182,7 @@ impl Encoder {
                             if let Ok(available) =
                                 crate::vram::Available::deserialize(_sdk.as_str())
                             {
-                                return available.contains(true, _driver, _format);
+                                return available.contains(true, _vendor, _format);
                             }
                         }
                     }
@@ -190,6 +190,10 @@ impl Encoder {
                 true
             };
             let (_nv, amf, _intel) = crate::common::supported_gpu(true);
+            debug!(
+                "GPU support detected - NV: {}, AMF: {}, Intel: {}",
+                _nv, amf, _intel
+            );
 
             #[cfg(windows)]
             if _intel && contains(Driver::MFX, H264) {
@@ -291,46 +295,65 @@ impl Encoder {
             return true;
         });
 
-        let infos = Arc::new(Mutex::new(Vec::<CodecInfo>::new()));
         let mut res = vec![];
 
-        let mutex = Arc::new(Mutex::new(0));
         if let Ok(yuv) = Encoder::dummy_yuv(ctx.clone()) {
-            let yuv = Arc::new(yuv);
-            let mut handles = vec![];
             for codec in codecs {
-                let yuv = yuv.clone();
-                let infos = infos.clone();
-                let mutex = mutex.clone();
-                let handle = thread::spawn(move || {
-                    let _lock;
-                    if codec.name.contains("nvenc") || codec.name.contains("mf") {
-                        _lock = mutex.lock().unwrap();
-                    }
-                    let c = EncodeContext {
-                        name: codec.name.clone(),
-                        mc_name: codec.mc_name.clone(),
-                        ..ctx
-                    };
-                    if let Ok(mut encoder) = Encoder::new(c) {
+                // Skip if this format already exists in results
+                if res
+                    .iter()
+                    .any(|existing: &CodecInfo| existing.format == codec.format)
+                {
+                    continue;
+                }
+
+                debug!("Testing encoder: {}", codec.name);
+
+                let c = EncodeContext {
+                    name: codec.name.clone(),
+                    mc_name: codec.mc_name.clone(),
+                    ..ctx
+                };
+
+                match Encoder::new(c) {
+                    Ok(mut encoder) => {
+                        debug!("Encoder {} created successfully", codec.name);
                         let start = std::time::Instant::now();
-                        if let Ok(frames) = encoder.encode(&yuv, 0) {
-                            if frames.len() == 1 {
-                                if frames[0].key == 1
-                                    && start.elapsed().as_millis() < TEST_TIMEOUT_MS as _
-                                {
-                                    infos.lock().unwrap().push(codec);
+
+                        match encoder.encode(&yuv, 0) {
+                            Ok(frames) => {
+                                let elapsed = start.elapsed().as_millis();
+
+                                if frames.len() == 1 {
+                                    if frames[0].key == 1 && elapsed < TEST_TIMEOUT_MS as _ {
+                                        debug!("Encoder {} test passed", codec.name);
+                                        res.push(codec);
+                                    } else {
+                                        debug!(
+                                            "Encoder {} test failed - key: {}, timeout: {}ms",
+                                            codec.name, frames[0].key, elapsed
+                                        );
+                                    }
+                                } else {
+                                    debug!(
+                                        "Encoder {} test failed - wrong frame count: {}",
+                                        codec.name,
+                                        frames.len()
+                                    );
                                 }
+                            }
+                            Err(err) => {
+                                debug!("Encoder {} test failed with error: {}", codec.name, err);
                             }
                         }
                     }
-                });
-                handles.push(handle);
+                    Err(_) => {
+                        debug!("Failed to create encoder {}", codec.name);
+                    }
+                }
             }
-            for handle in handles {
-                handle.join().ok();
-            }
-            res = infos.lock().unwrap().clone();
+        } else {
+            debug!("Failed to generate dummy YUV data");
         }
 
         res

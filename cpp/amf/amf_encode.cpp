@@ -27,7 +27,7 @@ namespace {
 
 #define AMF_CHECK_RETURN(res, msg)                                             \
   if (res != AMF_OK) {                                                         \
-    LOG_ERROR(msg + ", result code: " + std::to_string(int(res)));             \
+    LOG_ERROR(std::string(msg) + ", result code: " + std::to_string(int(res)));             \
     return res;                                                                \
   }
 
@@ -120,7 +120,7 @@ public:
       }
       break;
     default:
-      LOG_ERROR("Unsupported memory type");
+      LOG_ERROR(std::string("Unsupported memory type"));
       return AMF_NOT_IMPLEMENTED;
       break;
     }
@@ -211,7 +211,7 @@ public:
       AMF_CHECK_RETURN(res, "InitDX11 failed");
       break;
     default:
-      LOG_ERROR("unsupported amf memory type");
+      LOG_ERROR(std::string("unsupported amf memory type"));
       return AMF_FAIL;
     }
 
@@ -445,7 +445,7 @@ bool convert_codec(DataFormat lhs, amf_wstring &rhs) {
     rhs = AMFVideoEncoder_HEVC;
     break;
   default:
-    LOG_ERROR("unsupported codec: " + std::to_string((int)lhs));
+    LOG_ERROR(std::string("unsupported codec: ") + std::to_string((int)lhs));
     return false;
   }
   return true;
@@ -464,12 +464,12 @@ int amf_destroy_encoder(void *encoder) {
     enc = NULL;
     return 0;
   } catch (const std::exception &e) {
-    LOG_ERROR("destroy failed: " + e.what());
+          LOG_ERROR(std::string("destroy failed: ") + e.what());
   }
   return -1;
 }
 
-void *amf_new_encoder(void *handle, int64_t luid, API api,
+void *amf_new_encoder(void *handle, int64_t luid,
                       DataFormat dataFormat, int32_t width, int32_t height,
                       int32_t kbs, int32_t framerate, int32_t gop) {
   AMFEncoder *enc = NULL;
@@ -479,7 +479,7 @@ void *amf_new_encoder(void *handle, int64_t luid, API api,
       return NULL;
     }
     amf::AMF_MEMORY_TYPE memoryType;
-    if (!convert_api(api, memoryType)) {
+    if (!convert_api(memoryType)) {
       return NULL;
     }
     enc = new AMFEncoder(handle, memoryType, codecStr, dataFormat, width,
@@ -490,7 +490,7 @@ void *amf_new_encoder(void *handle, int64_t luid, API api,
       }
     }
   } catch (const std::exception &e) {
-    LOG_ERROR("new failed: " + e.what());
+          LOG_ERROR(std::string("new failed: ") + e.what());
   }
   if (enc) {
     enc->destroy();
@@ -506,7 +506,7 @@ int amf_encode(void *encoder, void *tex, EncodeCallback callback, void *obj,
     AMFEncoder *enc = (AMFEncoder *)encoder;
     return -enc->encode(tex, callback, obj, ms);
   } catch (const std::exception &e) {
-    LOG_ERROR("encode failed: " + e.what());
+          LOG_ERROR(std::string("encode failed: ") + e.what());
   }
   return -1;
 }
@@ -524,25 +524,29 @@ int amf_driver_support() {
   return -1;
 }
 
-int amf_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
-                    API api, DataFormat dataFormat, int32_t width,
+int amf_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxDescNum, int32_t *outDescNum,
+                    DataFormat dataFormat, int32_t width,
                     int32_t height, int32_t kbs, int32_t framerate,
-                    int32_t gop) {
+                    int32_t gop, const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) {
   try {
-    AdapterDesc *descs = (AdapterDesc *)outDescs;
     Adapters adapters;
     if (!adapters.Init(ADAPTER_VENDOR_AMD))
       return -1;
     int count = 0;
     for (auto &adapter : adapters.adapters_) {
+      int64_t currentLuid = LUID(adapter.get()->desc1_);
+      if (util::skip_test(excludedLuids, excludeFormats, excludeCount, currentLuid, dataFormat)) {
+        continue;
+      }
+      
       AMFEncoder *e = (AMFEncoder *)amf_new_encoder(
-          (void *)adapter.get()->device_.Get(), LUID(adapter.get()->desc1_),
-          api, dataFormat, width, height, kbs, framerate, gop);
+          (void *)adapter.get()->device_.Get(), currentLuid,
+          dataFormat, width, height, kbs, framerate, gop);
       if (!e)
         continue;
       if (e->test() == AMF_OK) {
-        AdapterDesc *desc = descs + count;
-        desc->luid = LUID(adapter.get()->desc1_);
+        outLuids[count] = currentLuid;
+        outVendors[count] = VENDOR_AMD;
         count += 1;
       }
       e->destroy();
@@ -555,7 +559,7 @@ int amf_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
     return 0;
 
   } catch (const std::exception &e) {
-    LOG_ERROR("test " + std::to_string(kbs) + "failed: " + e.what());
+    LOG_ERROR(std::string("test ") + std::to_string(kbs) + " failed: " + e.what());
   }
   return -1;
 }
@@ -576,7 +580,7 @@ int amf_set_bitrate(void *encoder, int32_t kbs) {
     }
     return res == AMF_OK ? 0 : -1;
   } catch (const std::exception &e) {
-    LOG_ERROR("set bitrate to " + std::to_string(kbs) +
+    LOG_ERROR(std::string("set bitrate to ") + std::to_string(kbs) +
               "k failed: " + e.what());
   }
   return -1;
@@ -598,7 +602,7 @@ int amf_set_framerate(void *encoder, int32_t framerate) {
     }
     return res == AMF_OK ? 0 : -1;
   } catch (const std::exception &e) {
-    LOG_ERROR("set framerate to " + std::to_string(framerate) +
+    LOG_ERROR(std::string("set framerate to ") + std::to_string(framerate) +
               " failed: " + e.what());
   }
   return -1;

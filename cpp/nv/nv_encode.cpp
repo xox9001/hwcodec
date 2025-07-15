@@ -37,11 +37,11 @@ namespace {
 
 void load_driver(CudaFunctions **pp_cuda_dl, NvencFunctions **pp_nvenc_dl) {
   if (cuda_load_functions(pp_cuda_dl, NULL) < 0) {
-    LOG_TRACE("cuda_load_functions failed");
+    LOG_TRACE(std::string("cuda_load_functions failed"));
     NVENC_THROW_ERROR("cuda_load_functions failed", NV_ENC_ERR_GENERIC);
   }
   if (nvenc_load_functions(pp_nvenc_dl, NULL) < 0) {
-    LOG_TRACE("nvenc_load_functions failed");
+    LOG_TRACE(std::string("nvenc_load_functions failed"));
     NVENC_THROW_ERROR("nvenc_load_functions failed", NV_ENC_ERR_GENERIC);
   }
 }
@@ -66,7 +66,6 @@ public:
 
   void *handle_ = nullptr;
   int64_t luid_;
-  API api_;
   DataFormat dataFormat_;
   int32_t width_;
   int32_t height_;
@@ -77,12 +76,11 @@ public:
   bool bt709_ = false;
   NV_ENC_CONFIG encodeConfig_ = {0};
 
-  NvencEncoder(void *handle, int64_t luid, API api, DataFormat dataFormat,
+  NvencEncoder(void *handle, int64_t luid, DataFormat dataFormat,
                int32_t width, int32_t height, int32_t kbs, int32_t framerate,
                int32_t gop) {
     handle_ = handle;
     luid_ = luid;
-    api_ = api;
     dataFormat_ = dataFormat;
     width_ = width;
     height_ = height;
@@ -105,12 +103,12 @@ public:
       guidCodec = NV_ENC_CODEC_HEVC_GUID;
       break;
     default:
-      LOG_ERROR("dataFormat not support, dataFormat: " +
+      LOG_ERROR(std::string("dataFormat not support, dataFormat: ") +
                 std::to_string(dataFormat_));
       return false;
     }
     if (!succ(cuda_dl_->cuInit(0))) {
-      LOG_TRACE("cuInit failed");
+      LOG_TRACE(std::string("cuInit failed"));
       return false;
     }
 
@@ -120,14 +118,14 @@ public:
       return false;
 #else
     if (!native_->Init(luid_, (ID3D11Device *)handle_)) {
-      LOG_ERROR("d3d device init failed");
+      LOG_ERROR(std::string("d3d device init failed"));
       return false;
     }
 #endif
 
     CUdevice cuDevice = 0;
     if (!succ(cuda_dl_->cuD3D11GetDevice(&cuDevice, native_->adapter_.Get()))) {
-      LOG_ERROR("Failed to get cuDevice");
+      LOG_ERROR(std::string("Failed to get cuDevice"));
       return false;
     }
 
@@ -318,7 +316,7 @@ int nv_encode_driver_support() {
     free_driver(&cuda_dl, &nvenc_dl);
     return 0;
   } catch (const std::exception &e) {
-    LOG_TRACE("driver not support, " + e.what());
+    LOG_TRACE(std::string("driver not support, ") + e.what());
   }
   return -1;
 }
@@ -333,24 +331,24 @@ int nv_destroy_encoder(void *encoder) {
     }
     return 0;
   } catch (const std::exception &e) {
-    LOG_ERROR("destroy failed: " + e.what());
+    LOG_ERROR(std::string("destroy failed: ") + e.what());
   }
   return -1;
 }
 
-void *nv_new_encoder(void *handle, int64_t luid, API api, DataFormat dataFormat,
+void *nv_new_encoder(void *handle, int64_t luid, DataFormat dataFormat,
                      int32_t width, int32_t height, int32_t kbs,
                      int32_t framerate, int32_t gop) {
   NvencEncoder *e = NULL;
   try {
-    e = new NvencEncoder(handle, luid, api, dataFormat, width, height, kbs,
+    e = new NvencEncoder(handle, luid, dataFormat, width, height, kbs,
                          framerate, gop);
     if (!e->init()) {
       goto _exit;
     }
     return e;
   } catch (const std::exception &ex) {
-    LOG_ERROR("new failed: " + ex.what());
+    LOG_ERROR(std::string("new failed: ") + ex.what());
     goto _exit;
   }
 
@@ -369,7 +367,7 @@ int nv_encode(void *encoder, void *texture, EncodeCallback callback, void *obj,
     NvencEncoder *e = (NvencEncoder *)encoder;
     return e->encode(texture, callback, obj, ms);
   } catch (const std::exception &e) {
-    LOG_ERROR("encode failed: " + e.what());
+    LOG_ERROR(std::string("encode failed: ") + e.what());
   }
   return -1;
 }
@@ -391,20 +389,24 @@ int nv_encode(void *encoder, void *texture, EncodeCallback callback, void *obj,
     return 0;                                                                  \
   }
 
-int nv_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
-                   API api, DataFormat dataFormat, int32_t width,
+int nv_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxDescNum, int32_t *outDescNum,
+                   DataFormat dataFormat, int32_t width,
                    int32_t height, int32_t kbs, int32_t framerate,
-                   int32_t gop) {
+                   int32_t gop, const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) {
   try {
-    AdapterDesc *descs = (AdapterDesc *)outDescs;
     Adapters adapters;
     if (!adapters.Init(ADAPTER_VENDOR_NVIDIA))
       return -1;
     int count = 0;
     for (auto &adapter : adapters.adapters_) {
+      int64_t currentLuid = LUID(adapter.get()->desc1_);
+      if (util::skip_test(excludedLuids, excludeFormats, excludeCount, currentLuid, dataFormat)) {
+        continue;
+      }
+
       NvencEncoder *e = (NvencEncoder *)nv_new_encoder(
-          (void *)adapter.get()->device_.Get(), LUID(adapter.get()->desc1_),
-          api, dataFormat, width, height, kbs, framerate, gop);
+          (void *)adapter.get()->device_.Get(), currentLuid,
+          dataFormat, width, height, kbs, framerate, gop);
       if (!e)
         continue;
       if (e->native_->EnsureTexture(e->width_, e->height_)) {
@@ -415,8 +417,8 @@ int nv_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
                       0) == 0 && key_obj == 1;
         int64_t elapsed = util::elapsed_ms(start);
         if (succ && elapsed < TEST_TIMEOUT_MS) {
-          AdapterDesc *desc = descs + count;
-          desc->luid = LUID(adapter.get()->desc1_);
+          outLuids[count] = currentLuid;
+          outVendors[count] = VENDOR_NV;
           count += 1;
         }
       }
@@ -430,7 +432,7 @@ int nv_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
     return 0;
 
   } catch (const std::exception &e) {
-    LOG_ERROR("test failed: " + e.what());
+    LOG_ERROR(std::string("test failed: ") + e.what());
   }
   return -1;
 }
@@ -442,7 +444,7 @@ int nv_set_bitrate(void *e, int32_t kbs) {
         kbs * 1000;
     RECONFIGURE_TAIL
   } catch (const std::exception &e) {
-    LOG_ERROR("set bitrate to " + std::to_string(kbs) +
+    LOG_ERROR(std::string("set bitrate to ") + std::to_string(kbs) +
               "k failed: " + e.what());
   }
   return -1;
@@ -455,7 +457,7 @@ int nv_set_framerate(void *e, int32_t framerate) {
     params.reInitEncodeParams.frameRateDen = 1;
     RECONFIGURE_TAIL
   } catch (const std::exception &e) {
-    LOG_ERROR("set framerate failed: " + e.what());
+    LOG_ERROR(std::string("set framerate failed: ") + e.what());
   }
   return -1;
 }

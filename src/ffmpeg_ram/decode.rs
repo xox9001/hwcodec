@@ -16,8 +16,6 @@ use std::{
     ffi::{c_void, CString},
     os::raw::c_int,
     slice::from_raw_parts,
-    sync::{Arc, Mutex},
-    thread,
     time::Instant,
     vec,
 };
@@ -160,12 +158,15 @@ impl Decoder {
     }
 
     pub fn available_decoders() -> Vec<CodecInfo> {
+        use log::debug;
+
         #[allow(unused_mut)]
         let mut codecs: Vec<CodecInfo> = vec![];
         // windows disable nvdec to avoid gpu stuck
         #[cfg(target_os = "linux")]
         {
             let (nv, _, _) = crate::common::supported_gpu(false);
+            debug!("Linux GPU support detected - NV: {}", nv);
             if nv {
                 codecs.push(CodecInfo {
                     name: "h264".to_owned(),
@@ -227,6 +228,10 @@ impl Decoder {
         #[cfg(target_os = "macos")]
         {
             let (_, _, h264, h265) = crate::common::get_video_toolbox_codec_support();
+            debug!(
+                "VideoToolbox decode support - H264: {}, H265: {}",
+                h264, h265
+            );
             if h264 {
                 codecs.push(CodecInfo {
                     name: "h264".to_owned(),
@@ -247,52 +252,68 @@ impl Decoder {
             }
         }
 
-        let infos = Arc::new(Mutex::new(Vec::<CodecInfo>::new()));
-        let buf264 = Arc::new(crate::common::DATA_H264_720P);
-        let buf265 = Arc::new(crate::common::DATA_H265_720P);
-        let mut handles = vec![];
-        let mutex = Arc::new(Mutex::new(0));
+        let mut res = Vec::<CodecInfo>::new();
+        let buf264 = &crate::common::DATA_H264_720P[..];
+        let buf265 = &crate::common::DATA_H265_720P[..];
+
         for codec in codecs {
-            let infos = infos.clone();
-            let buf264 = buf264.clone();
-            let buf265 = buf265.clone();
-            let mutex = mutex.clone();
-            let handle = thread::spawn(move || {
-                let _lock;
-                if codec.hwdevice == AV_HWDEVICE_TYPE_CUDA
-                    || codec.hwdevice == AV_HWDEVICE_TYPE_D3D11VA
-                {
-                    _lock = mutex.lock().unwrap();
-                }
-                let c = DecodeContext {
-                    name: codec.name.clone(),
-                    device_type: codec.hwdevice,
-                    thread_count: 4,
-                };
-                if let Ok(mut decoder) = Decoder::new(c) {
+            // Skip if this format already exists in results
+            if res
+                .iter()
+                .any(|existing: &CodecInfo| existing.format == codec.format)
+            {
+                continue;
+            }
+
+            debug!(
+                "Testing decoder: {} (hwdevice: {:?})",
+                codec.name, codec.hwdevice
+            );
+
+            let c = DecodeContext {
+                name: codec.name.clone(),
+                device_type: codec.hwdevice,
+                thread_count: 4,
+            };
+
+            match Decoder::new(c) {
+                Ok(mut decoder) => {
+                    debug!("Decoder {} created successfully", codec.name);
                     let data = match codec.format {
-                        H264 => &buf264[..],
-                        H265 => &buf265[..],
+                        H264 => buf264,
+                        H265 => buf265,
                         _ => {
-                            log::error!("unsupported format: {:?}", codec.format);
-                            return;
+                            log::error!("Unsupported format: {:?}, skipping", codec.format);
+                            continue;
                         }
                     };
+
                     let start = Instant::now();
-                    if let Ok(_) = decoder.decode(data) {
-                        if start.elapsed().as_millis() < TEST_TIMEOUT_MS as _ {
-                            infos.lock().unwrap().push(codec);
+
+                    match decoder.decode(data) {
+                        Ok(_) => {
+                            let elapsed = start.elapsed().as_millis();
+
+                            if elapsed < TEST_TIMEOUT_MS as _ {
+                                debug!("Decoder {} test passed", codec.name);
+                                res.push(codec);
+                            } else {
+                                debug!(
+                                    "Decoder {} test failed - timeout: {}ms",
+                                    codec.name, elapsed
+                                );
+                            }
+                        }
+                        Err(err) => {
+                            debug!("Decoder {} test failed with error: {}", codec.name, err);
                         }
                     }
                 }
-            });
-
-            handles.push(handle);
+                Err(_) => {
+                    debug!("Failed to create decoder {}", codec.name);
+                }
+            }
         }
-        for handle in handles {
-            handle.join().ok();
-        }
-        let mut res = infos.lock().unwrap().clone();
 
         let soft = CodecInfo::soft();
         if let Some(c) = soft.h264 {
